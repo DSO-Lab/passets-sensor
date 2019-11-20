@@ -1,0 +1,17 @@
+version: "3"
+
+services:
+  passets:
+    build:
+      context: ./
+    image: passets:1.0.0
+    container_name: passets
+    environment:
+      - tag=localhost
+      - interface=ens192
+      - ip=192.168.199.132
+      - port=5044
+      - switch=on
+      - debug=off
+    network_mode: host
+    restart: unless-stopped
