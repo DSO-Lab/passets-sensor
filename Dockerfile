@@ -1,9 +1,6 @@
-#FROM harbor.shuziguanxing.com/pad/passets:1.0.0
 FROM docker.io/ubuntu:18.04
 
-MAINTAINER rH.5@shuziguanxing
-
-COPY src /root/passets
+COPY src /root/passets-sensor
 
 RUN apt-get update 
 RUN sh -c "/bin/echo -e yes\n"|apt-get -y install tshark && \
@@ -17,4 +14,4 @@ RUN sh -c "/bin/echo -e yes\n"|apt-get -y install tshark && \
 	apt-get autoremove
 
 
-ENTRYPOINT ["/bin/bash","-c","/usr/bin/python3 /root/passets/main.py -i $interface -t $tag -s $ip -p $port -r $switch -d $debug"]
+ENTRYPOINT ["/bin/bash","-c","/usr/bin/python3 /root/passets-sensor/main.py -i $interface -t $tag -s $ip -p $port -r $switch -d $debug"]

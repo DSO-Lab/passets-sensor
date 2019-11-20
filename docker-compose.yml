@@ -1,15 +1,15 @@
 version: "3"
 
 services:
-  passets:
+  passets-sensor:
     build:
       context: ./
-    image: passets:1.0.0
-    container_name: passets
+    image: passets-sensor:1.0.0
+    container_name: passets-sensor
     environment:
       - tag=localhost
       - interface=ens192
-      - ip=192.168.199.132
+      - ip=localhost
       - port=5044
       - switch=on
       - debug=off

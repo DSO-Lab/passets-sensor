@@ -16,12 +16,9 @@ main.py 参数说明：
 Dockerfile image生成
 
 ```
-#FROM harbor.shuziguanxing.com/pad/passets:1.0.0
 FROM docker.io/ubuntu:18.04
 
-MAINTAINER rH.5@shuziguanxing
-
-COPY src /root/passets
+COPY src /root/passets-sensor
 
 RUN apt-get update 
 RUN sh -c "/bin/echo -e yes\n"|apt-get -y install tshark && \
@@ -35,25 +32,13 @@ RUN sh -c "/bin/echo -e yes\n"|apt-get -y install tshark && \
 	apt-get autoremove
 
 
-ENTRYPOINT ["/bin/bash","-c","/usr/bin/python3 /root/passets/main.py -i $interface -t $tag -s $ip -p $port -r $switch -d $debug"]
+ENTRYPOINT ["/bin/bash","-c","/usr/bin/python3 /root/passets-sensor/main.py -i $interface -t $tag -s $ip -p $port -r $switch -d $debug"]
 ```
 
-最终Images Build过程
+Images Build
 
 ```
-docker build -t passets:1.0.0 .
-或
-docker-compose up
-docker-compose build
-```
-
-最终images导出和导入
-
-```
-docker commit <CONTAINER ID> passets:1.0.0
-
-docker export eb16cbc77af0 > /home/passets-x86_64.tar
-cat /home/passets-x86_64.tar | docker import - passets:1.0.0
+docker build -t passets-sensor:1.0.0 .
 ```
 
 ###容器启动
@@ -64,26 +49,26 @@ docker-compose启动容器
 version: "3"
 
 services:
-  passets:
+  passets-sensor:
     build:
       context: ./
-    image: passets:1.0.0
-    container_name: passets
+    image: passets-sensor:1.0.0
+    container_name: passets-sensor
     environment:
       - tag=localhost
       - interface=ens192
-      - ip=192.168.199.132
+      - ip=localhost
       - port=5044
       - switch=on
       - debug=off
     network_mode: host
-    restart: always
+    restart: unless-stopped
 ```
 
 命令行创建并启动容器
 
 ```
-docker run --restart=unless-stopped -d -e tag="localhost" -e interface="ens192" -e ip="192.168.199.132" -e port="5044" -e switch="on" -e debug="off" --net=host -v /tmp:/mnt -it passets:1.0.0 /bin/bash
+docker run --restart=unless-stopped -d -e tag="localhost" -e interface="ens192" -e ip="192.168.199.132" -e port="5044" -e switch="on" -e debug="off" --net=host -v /tmp:/mnt -it passets-sensor:1.0.0 /bin/bash
 ```
 
 ### FAQ
