@@ -54,9 +54,9 @@ services:
     container_name: passets-sensor
     environment:
       - tag=localhost
-      - interface=ens192
-      - ip=localhost
-      - port=5044
+      - interface=eth0
+      - ip=SyslogIP
+      - port=SyslogPort
       - switch=on
       - debug=off
     network_mode: host
@@ -66,7 +66,7 @@ services:
 ###命令行方式启动
 
 ```
-docker run --restart=unless-stopped -d -e tag="localhost" -e interface="ens192" -e ip="192.168.199.132" -e port="5044" -e switch="on" -e debug="off" --net=host -v /tmp:/mnt -it passets-sensor:1.0.0 /bin/bash
+docker run --restart=unless-stopped -d -e tag="localhost" -e interface="eth0" -e ip="192.168.1.109" -e port="5044" -e switch="on" -e debug="off" --net=host -v /tmp:/mnt -it passets-sensor:1.0.0 /bin/bash
 ```
 
 ### FAQ
