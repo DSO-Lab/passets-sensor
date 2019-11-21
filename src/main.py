@@ -34,13 +34,11 @@ filter_rules = {
 		'400', '404', '301', '302', '304'
 	]
 }
-# crontab
-# */5 * * * * root /usr/bin/python3 /usr/server/Passets/main.py >> /dev/null 2>&1
 
 def Usage():
 	print('''
  ########################################################################
- #                             Passets v0.2                             #
+ #                         passets-sensor v0.2                          #
  ########################################################################
  ------------------------------------------------------------------------
  Usage:
@@ -55,6 +53,8 @@ def main():
 
 if __name__ == '__main__':
 
+	# crontab方式启动
+	# */5 * * * * root /usr/bin/python3 /passets-sensor/main.py >> /dev/null 2>&1
 	# check_lock()
 
 	try:

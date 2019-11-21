@@ -13,5 +13,4 @@ RUN sh -c "/bin/echo -e yes\n"|apt-get -y install tshark && \
 	apt-get autoclean && \
 	apt-get autoremove
 
-
 ENTRYPOINT ["/bin/bash","-c","/usr/bin/python3 /root/passets-sensor/main.py -i $interface -t $tag -s $ip -p $port -r $switch -d $debug"]

@@ -1,19 +1,19 @@
-###主要代码说明
+### 项目简述
 
-main.py 参数说明：
+开源版本基于pyshark、tshark实现实时流量分析，使用syslog方式输出TCP及HTTP两种Json格式数据，对物理硬件无特殊要求。
+
+###参数说明
 
 ```
--i  指定捕获流量的网卡接口，例如：eth0、ens192
--t  发送的Syslog打的标签，用于标识流量来源
+-i  捕获流量的网卡接口，例如：eth0、ens192
+-t  发送的Syslog打标签，用于标识流量来源
 -s  Syslog服务器地址
 -p  Syslog服务器监听端口
 -r  是否收集HTTP响应头和正文的开关，off|on
 -d  是否在Stdout打印数据的开关，off|on
 ```
 
-###基础镜像配置
-
-Dockerfile image生成
+###Dockerfile
 
 ```
 FROM docker.io/ubuntu:18.04
@@ -41,9 +41,7 @@ Images Build
 docker build -t passets-sensor:1.0.0 .
 ```
 
-###容器启动
-
-docker-compose启动容器
+###docker-compose
 
 ```
 version: "3"
@@ -65,7 +63,7 @@ services:
     restart: unless-stopped
 ```
 
-命令行创建并启动容器
+###命令行方式启动
 
 ```
 docker run --restart=unless-stopped -d -e tag="localhost" -e interface="ens192" -e ip="192.168.199.132" -e port="5044" -e switch="on" -e debug="off" --net=host -v /tmp:/mnt -it passets-sensor:1.0.0 /bin/bash

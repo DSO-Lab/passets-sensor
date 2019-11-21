@@ -6,7 +6,7 @@ import os
 import sys
 
 # TASK_LOCK_FILE临时文件，判断程序是否正在运行
-TASK_LOCK_FILE = sys.path[0]+'/Passets_task.lock'
+TASK_LOCK_FILE = sys.path[0]+'/passets_sensor.lock'
 global_pid = os.getpid()
 if 'win' in sys.platform:
 	global_os_version = 'win'
@@ -35,7 +35,7 @@ def check_lock():
 					w_lock.write(str(global_pid))
 					w_lock.close()
 				else:
-					print_log('[!] Passets_Task Already running !')
+					print_log('[!] passets_sensor already running !')
 					sys.exit()
 			# win 判断进程是否存在
 			else:
@@ -45,7 +45,7 @@ def check_lock():
 					w_lock.write(str(global_pid))
 					w_lock.close()
 				else:
-					print_log('[!] Passets_Task Already running !')
+					print_log('[!] passets_sensor already running !')
 					sys.exit()
 	except Exception as e:
 		print_log('[!] check_lock Error !')
@@ -64,15 +64,6 @@ class _logging:
 		formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s')
 		hdlr.setFormatter(formatter)
 		self.logger.addHandler(hdlr)
-		##    日志记录等级
-		##    级别    对应的值
-		##    CRITICAL  50
-		##    ERROR     40
-		##    WARNING   30
-		##    INFO      20
-		##    DEBUG     10
-		##    NOTSET    0
-		##    低于该级别的日志消息将会被忽略， NOTSET相当于全部信息记录。
 		self.logger.setLevel(logging.INFO)
 
 	def info(self, msg):

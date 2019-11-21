@@ -20,7 +20,6 @@ class tcp_http_sniff():
 		self.interface = interface
 		self.display_filter = display_filter
 		self.display_switch = display_switch
-		# ['captured_length', 'eth', 'frame_info', 'get_multiple_layers', 'get_raw_packet', 'highest_layer', 'interface_captured', 'ip', 'layers', 'length', 'number', 'pretty_print', 'show', 'sniff_time', 'sniff_timestamp', 'tcp', 'transport_layer']
 		self.pktcap = pyshark.LiveCapture(interface=self.interface, bpf_filter=self.display_filter)
 		self.cache = Cache(maxsize=256, ttl=120, timer=time.time, default=None)
 
@@ -34,8 +33,6 @@ class tcp_http_sniff():
 	
 	def run(self):
 		self.pktcap.apply_on_packets(self.proc_packet)
-		# for pkt in self.pktcap:
-		# 	self.proc_packet(pkt)
 
 	def proc_packet(self, pkt):
 		try:
@@ -112,7 +109,6 @@ class tcp_http_sniff():
 				if self.filter_rules:
 					return_status = self.http_filter('response_code', pkt.http.response_code)
 					if return_status:
-						# print(pkt.http.response_for_uri, pkt.http.response_code)
 						return None
 				pkt_json["response_code"] = pkt.http.response_code
 			
@@ -120,7 +116,6 @@ class tcp_http_sniff():
 				if self.filter_rules:
 					return_status = self.http_filter('content_type', pkt.http.content_type)
 					if return_status:
-						# print(pkt.http.response_for_uri, pkt.http.content_type)
 						return None
 				pkt_json["content_type"] = pkt.http.content_type.lower()
 
