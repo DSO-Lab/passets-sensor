@@ -98,7 +98,7 @@ class tcp_http_sniff():
 
 			self.cache.set(pkt_json["http_uri"], True)
 
-			pkt_json["protocol"] = 'HTTP-Response'
+			pkt_json["protocol"] = 'HTTP'
 			pkt_json["custom_tag"] = self.custom_tag
 			pkt_json["src_addr"] = src_addr
 			pkt_json["src_port"] = src_port
