@@ -1,8 +1,8 @@
 ### 项目简述
 
-开源版本基于pyshark、tshark实现实时流量分析，使用syslog方式输出TCP及HTTP两种Json格式数据，对物理硬件无特殊要求。
+基于pyshark、tshark、pf_ring实现实时流量分析，使用syslog方式输出TCP及HTTP两种json格式数据。
 
-###参数说明
+### 参数说明
 
 ```
 -i  捕获流量的网卡接口，例如：eth0、ens192
@@ -13,24 +13,27 @@
 -d  是否在Stdout打印数据的开关，off|on
 ```
 
-###Dockerfile
+### Dockerfile
 
 ```
 FROM docker.io/ubuntu:18.04
 
 COPY src /root/passets-sensor
 
-RUN apt-get update 
-RUN sh -c "/bin/echo -e yes\n"|apt-get -y install tshark && \
+RUN	apt-get -y update && \
+	apt-get -y install software-properties-common wget && \
+	wget -q http://apt-stable.ntop.org/18.04/all/apt-ntop-stable.deb && \
+	dpkg -i apt-ntop-stable.deb && \
+	apt-get clean all && \
+	apt-get -y update && \
+	apt-get -y install pfring && \
+	DEBIAN_FRONTEND="noninteractive" apt-get -y install tshark && \
 	apt-get -y install python3 python3-pip python3-lxml && \
 	pip3 install cacheout && \
 	pip3 install pyshark && \
 	chmod 750 /usr/bin/dumpcap && \
 	chgrp root /usr/bin/dumpcap && \
-	apt-get clean && \
-	apt-get autoclean && \
-	apt-get autoremove
-
+	apt-get autoclean
 
 ENTRYPOINT ["/bin/bash","-c","/usr/bin/python3 /root/passets-sensor/main.py -i $interface -t $tag -s $ip -p $port -r $switch -d $debug"]
 ```
@@ -41,7 +44,7 @@ Images Build
 docker build -t passets-sensor:1.0.0 .
 ```
 
-###docker-compose
+### docker-compose
 
 ```
 version: "3"
@@ -54,7 +57,7 @@ services:
     container_name: passets-sensor
     environment:
       - tag=localhost
-      - interface=eth0
+      - interface=ens192
       - ip=SyslogIP
       - port=SyslogPort
       - switch=on
@@ -63,14 +66,35 @@ services:
     restart: unless-stopped
 ```
 
-###命令行方式启动
+### 命令行方式启动
 
 ```
-docker run --restart=unless-stopped -d -e tag="localhost" -e interface="eth0" -e ip="192.168.1.109" -e port="5044" -e switch="on" -e debug="off" --net=host -v /tmp:/mnt -it passets-sensor:1.0.0 /bin/bash
+docker run --restart=unless-stopped -d -e tag="localhost" -e interface="ens192" -e ip="192.168.1.109" -e port="5044" -e switch="on" -e debug="off" --net=host -v /tmp:/mnt -it passets-sensor:1.0.0 /bin/bash
 ```
 
 ### FAQ
 
-Q: 为什么使用docker-compose 启动镜像后无法捕获网口流量？
+Q: 为什么无法捕获网口流量？
 
-> 首先确认网口配置正确，然后要确认网络工作模式（network_mode）是host。
+> 首先确认网口流量镜像配置正确，然后要确认网络工作模式（network_mode）是host。
+
+Q：是否一定需要安装pf_ring？
+
+> 不需要
+
+Q：安装pf_ring会有哪些提升？
+
+> pf_ring可以减少CPU处理从而提升数据采集能力，官方介绍文档：
+>
+> <https://www.ntop.org/products/packet-capture/pf_ring/>
+
+Q：如何安装配置pf_ring？
+
+> pf_ring需要在宿主机上进行安装配置，参考文档：
+>
+>  https://github.com/DSO-Lab/passets/blob/master/docs/PF_RING_Install.md 
+>
+> 测试pf_ring是否配置成功：
+>
+> pfcount -i ens192
+
