@@ -16,6 +16,7 @@ RUN apt-get -y update && \
     chmod 750 /usr/bin/dumpcap && \
     chgrp root /usr/bin/dumpcap && \
     apt-get clean all && \
+    apt-get autoclean && \
     apt-get autoremove && \
     rm -f apt-ntop-stable.deb
 
