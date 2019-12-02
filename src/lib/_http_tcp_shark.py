@@ -118,6 +118,8 @@ class tcp_http_sniff():
 					if return_status:
 						return None
 				pkt_json["content_type"] = pkt.http.content_type.lower()
+			else:
+				pkt_json["content_type"] = 'unkown'
 
 			if 'server' in http_dict:
 				pkt_json["http_server"] = pkt.http.server
@@ -141,7 +143,7 @@ class tcp_http_sniff():
 							split_pos = 4096
 						pkt_json["response_headers"] = str(payload[:split_pos], 'utf-8', 'ignore')
 
-				if 'file_data' in http_dict and pkt.http.file_data.raw_value:
+				if 'file_data' in http_dict and pkt.http.file_data.raw_value and pkt_json['content_type'] != 'application/octet-stream':
 					data = bytes.fromhex(pkt.http.file_data.raw_value)
 					# 根据页面HEAD处理编码
 					data_head = data[:500] if data.find(b'</head>', 0, 1024) == -1 else data[:data.find(b'</head>')]
@@ -150,16 +152,19 @@ class tcp_http_sniff():
 						charset = 'gbk'
 					elif 'charset=utf-8' in data_head_str:
 						charset = 'utf-8'
-
-					response_body = str(data, charset, 'ignore')[:16*1024]
+					
+					response_body = self.proc_body(str(data, charset, 'ignore'), 16*1024)
 					pkt_json["response_body"] = response_body
+				else:
+					pkt_json["response_body"] = ''
 			
 			return pkt_json
 		
 		return None
 
 	def proc_tcp(self, pkt):
-		if 'flags' in dir(pkt.tcp) and pkt.tcp.flags == '0x00000012':
+		# 部分情况下 flags 需要使用 18
+		if pkt.tcp.flags == '0x00000012': # SYN+ACK
 			pkt_json = {}
 			pkt_json["protocol"] = 'TCP'
 			pkt_json["custom_tag"] = self.custom_tag
@@ -177,3 +182,15 @@ class tcp_http_sniff():
 			return pkt_json
 		
 		return None
+
+	def proc_body(self, data, length):
+		json_data = json.dumps(data)[:length]
+		total_len = len(json_data)
+		if total_len < length:
+			return data
+		
+		pos = json_data.rfind("\\u")
+		if pos + 6 > len(json_data):
+			json_data = json_data[:pos]
+		
+		return json.loads(json_data + '"')

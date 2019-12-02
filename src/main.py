@@ -26,7 +26,6 @@ filter_rules = {
 		"image/",
 		"application/pdf",
 		"application/msword",
-		"application/octet-stream",
 		"application/javascript",
 		"text/javascript",
 		"text/css"],
@@ -83,6 +82,9 @@ if __name__ == '__main__':
 				return_http_info = True
 
 	if interface and syslog_ip and syslog_port:
-		main()
+		try:
+			main()
+		except KeyboardInterrupt:
+			print('\nExit.')
 	else:
 		Usage()

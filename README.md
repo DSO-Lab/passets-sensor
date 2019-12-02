@@ -38,10 +38,10 @@ RUN	apt-get -y update && \
 ENTRYPOINT ["/bin/bash","-c","/usr/bin/python3 /root/passets-sensor/main.py -i $interface -t $tag -s $ip -p $port -r $switch -d $debug"]
 ```
 
-Images Build
+镜像构建：
 
 ```
-docker build -t passets-sensor:1.0.0 .
+docker build -t passets-sensor:<tag> .
 ```
 
 ### docker-compose
@@ -53,11 +53,11 @@ services:
   passets-sensor:
     build:
       context: ./
-    image: passets-sensor:1.0.0
+    image: passets-sensor:<tag>
     container_name: passets-sensor
     environment:
       - tag=localhost
-      - interface=ens192
+      - interface=eth0
       - ip=SyslogIP
       - port=SyslogPort
       - switch=on
@@ -69,7 +69,7 @@ services:
 ### 命令行方式启动
 
 ```
-docker run --restart=unless-stopped -d -e tag="localhost" -e interface="ens192" -e ip="192.168.1.109" -e port="5044" -e switch="on" -e debug="off" --net=host -v /tmp:/mnt -it passets-sensor:1.0.0 /bin/bash
+docker run --restart=unless-stopped -d -e tag="test" -e interface="ens160" -e ip="192.168.199.201" -e port="5044" -e switch="on" -e debug="off" --net=host -v /tmp:/mnt -it passets-sensor:1.0.0 /bin/bash
 ```
 
 ### FAQ
