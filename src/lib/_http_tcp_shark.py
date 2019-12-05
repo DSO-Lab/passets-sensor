@@ -22,7 +22,7 @@ class tcp_http_sniff():
 		self.display_filter = display_filter
 		self.display_switch = display_switch
 		self.pktcap = pyshark.LiveCapture(interface=self.interface, bpf_filter=self.display_filter)
-		self.cache = Cache(maxsize=int(self.cache_size), ttl=120, timer=time.time, default=None)
+		self.cache = Cache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
 
 	# 根据response_code和content_type过滤
 	def http_filter(self,key,value):
