@@ -10,7 +10,8 @@ from cacheout import Cache
 
 class tcp_http_sniff():
 
-	def __init__(self,interface,display_filter,syslog_ip,syslog_port,display_switch,custom_tag,return_deep_info,filter_rules,cache_size):
+	def __init__(self,interface,display_filter,syslog_ip,syslog_port,display_switch,custom_tag,return_deep_info,filter_rules,cache_size,bpf_filter):
+		self.bpf_filter = bpf_filter
 		self.cache_size = cache_size
 		self.filter_rules = filter_rules
 		self.return_deep_info = return_deep_info
@@ -21,9 +22,9 @@ class tcp_http_sniff():
 		self.interface = interface
 		self.display_filter = display_filter
 		self.display_switch = display_switch
-		self.pktcap = pyshark.LiveCapture(interface=self.interface, bpf_filter=self.display_filter)
-		self.cache = Cache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
-
+		self.pktcap = pyshark.LiveCapture(interface=self.interface, bpf_filter=self.bpf_filter, display_filter=self.display_filter)
+		self.http_cache = Cache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
+		self.tcp_cache = Cache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
 	# 根据response_code和content_type过滤
 	def http_filter(self,key,value):
 		if key in self.filter_rules:
@@ -65,7 +66,7 @@ class tcp_http_sniff():
 		
 		if self.return_deep_info:
 			if 'request' in http_dict:
-				self.cache.set(pkt.tcp.stream, pkt.http.request_full_uri if 'request_full_uri' in http_dict else pkt.http.request_uri)
+				self.http_cache.set(pkt.tcp.stream, pkt.http.request_full_uri if 'request_full_uri' in http_dict else pkt.http.request_uri)
 		
 		if 'response' in http_dict:
 			pkt_json = {}
@@ -73,11 +74,10 @@ class tcp_http_sniff():
 			src_port = pkt[pkt.transport_layer].srcport
 			
 			if self.return_deep_info:
-				cache_url = self.cache.get(pkt.tcp.stream)
+				cache_url = self.http_cache.get(pkt.tcp.stream)
 				if cache_url:
 					pkt_json['url'] = cache_url
-					self.cache.delete(pkt.tcp.stream)
-			
+					self.http_cache.delete(pkt.tcp.stream)
 			if 'url' not in pkt_json:
 				if 'response_for_uri' in http_dict:
 					pkt_json["url"] = pkt.http.response_for_uri
@@ -90,13 +90,13 @@ class tcp_http_sniff():
 					pkt_json["url"] = "http://%s%s"%(src_addr,pkt_json["url"])
 				else:
 					pkt_json["url"] = "http://%s:%s%s"%(src_addr,src_port,pkt_json["url"])
-			
+
 			# 缓存机制，防止短时间大量处理重复响应
-			exists = self.cache.get(pkt_json['url'])
+			exists = self.http_cache.get(pkt_json['url'])
 			if exists:
 				return None
 
-			self.cache.set(pkt_json["url"], True)
+			self.http_cache.set(pkt_json["url"], True)
 
 			pkt_json["pro"] = 'HTTP'
 			pkt_json["tag"] = self.custom_tag
@@ -108,7 +108,7 @@ class tcp_http_sniff():
 			pkt_json["ip"] = src_addr
 			pkt_json["port"] = src_port
 
-			if 'code' in http_dict:
+			if 'response_code' in http_dict:
 				if self.filter_rules:
 					return_status = self.http_filter('response_code', pkt.http.response_code)
 					if return_status:
@@ -171,42 +171,36 @@ class tcp_http_sniff():
 		pkt_json = {}
 		pkt_json["pro"] = 'TCP'
 		pkt_json["tag"] = self.custom_tag
+
 		# SYN+ACK
 		if pkt.tcp.flags == '0x00000012' : 
 			server_ip = pkt.ip.src
 			server_port = pkt[pkt.transport_layer].srcport
 			tcp_info = '%s:%s' % (server_ip, server_port)
-			exists = self.cache.get(tcp_info)
+
+			exists = self.tcp_cache.get(tcp_info)
 			if exists:
 				return None
+				
+			if self.return_deep_info and tcp_info:
+				self.tcp_cache.set(tcp_stream, tcp_info)
+				self.tcp_cache.set(tcp_info,True)
 			else:
-				if self.return_deep_info and tcp_info:
-					if self.cache.get(tcp_stream):
-						return None
-					else:
-						self.cache.set(tcp_stream, tcp_info)
-				else:
-					pkt_json["ip"] = server_ip
-					pkt_json["port"] = server_port
-					self.cache.set(tcp_info,True)
-					return pkt_json
+				pkt_json["ip"] = server_ip
+				pkt_json["port"] = server_port
+				self.tcp_cache.set(tcp_info,True)
+				return pkt_json
 		
 		# -r on开启深度数据分析，采集server第一个响应数据包
 		if self.return_deep_info and pkt.tcp.seq == "1" and "payload" in dir(pkt.tcp) :
-			tcp_info = self.cache.get(tcp_stream)
-			if tcp_info and pkt_json and 'http' not in tcp_info:
-				if self.cache.get(tcp_info):
-					return None
-				else:
-					tcp_info_list = tcp_info.split(":")
-					pkt_json["ip"] = tcp_info_list[0]
-					pkt_json["port"] = tcp_info_list[1]
-					pkt_json["data"] = pkt.tcp.payload.replace(":","")
-					self.cache.delete(tcp_stream)
-					self.cache.set(tcp_info,True)
-					return pkt_json
-			else:
-				return None
+			tcp_info = self.tcp_cache.get(tcp_stream)
+			if tcp_info:
+				tcp_info_list = tcp_info.split(":")
+				pkt_json["ip"] = tcp_info_list[0]
+				pkt_json["port"] = tcp_info_list[1]
+				pkt_json["data"] = pkt.tcp.payload.replace(":","")
+				self.tcp_cache.delete(tcp_stream)
+				return pkt_json
 		return None
 
 	def proc_body(self, data, length):

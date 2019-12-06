@@ -12,14 +12,16 @@ syslog_port = 514
 interface = 'eth0'
 # 主机标识
 custom_tag = '127.0.0.1'
-# 数据过滤规则，与wireshark规则一致
-display_filter = "tcp"
+# bpf_filter
+bpf_filter = 'tcp'
+# display_filter
+display_filter = "tcp.flags.reset == 0"
 # 数据是否在console显示
 display_switch = False
 # 开启深度数据分析
 return_deep_info = False
 # 缓存数量
-cache_size = 1024
+cache_size = 512
 # 数据过滤配置
 filter_rules = {
 	"content_type":[
@@ -39,7 +41,7 @@ filter_rules = {
 def Usage():
 	print('''
  ########################################################################
- #                         passets-sensor v0.2                          #
+ #                         passets-sensor 1.0.1                         #
  ########################################################################
  ------------------------------------------------------------------------
  Usage:
@@ -49,7 +51,7 @@ def Usage():
 	sys.exit()
 
 def main():
-	sniff_obj = tcp_http_sniff(interface, display_filter, syslog_ip, syslog_port, display_switch, custom_tag, return_deep_info, filter_rules, cache_size)
+	sniff_obj = tcp_http_sniff(interface, display_filter, syslog_ip, syslog_port, display_switch, custom_tag, return_deep_info, filter_rules, cache_size, bpf_filter)
 	sniff_obj.run()
 
 if __name__ == '__main__':
