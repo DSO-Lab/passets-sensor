@@ -66,10 +66,16 @@ services:
     restart: unless-stopped
 ```
 
-### 命令行方式启动
+### 容器启动
 
+#### 启动自行编译的镜像
 ```
 docker run --restart=unless-stopped -d -e tag="localhost" -e interface="ens192" -e ip="SyslogIP" -e port="SyslogPort" -e switch="on" -e debug="off" --net=host -v /tmp:/mnt -it passets-sensor:<tag> /bin/bash
+```
+
+### 启动 Docker HUB 中的镜像
+```
+docker run --restart=unless-stopped -d -e tag="localhost" -e interface="ens192" -e ip="SyslogIP" -e port="SyslogPort" -e switch="on" -e debug="off" --net=host -v /tmp:/mnt -it doslab/passets-sensor:<tag> /bin/bash
 ```
 
 ### FAQ
