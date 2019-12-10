@@ -53,7 +53,7 @@ services:
   passets-sensor:
     build:
       context: ./
-    image: passets-sensor:<tag>
+    image: dsolab/passets-sensor:<tag>
     container_name: passets-sensor
     environment:
       - tag=localhost
@@ -84,31 +84,41 @@ HTTP OUTPUT JSON
 
 ```
 {
-  
-  "url": "http://www.dsolab.org/",              # URL
-  "pro": "HTTP",								# 协议
-  "tag": "dsolab",                              # 来源标识
-  "ip": "108.x.x.136",                          # 服务IP 
-  "port": "80",                                 # 服务端口
-  "code": "200",                                # 网站响应状态码
-  "type": "text/html",                          # 网站页面类型
-  "server": "nginx/1.16.1",                     # 网站server头信息
-  "body": "<html>...</html>"                    # 网站响应body信息（仅-r on时返回）
+  # URL
+  "url": "http://www.dsolab.org/",    
+  # 协议
+  "pro": "HTTP",
+  # 来源标识
+  "tag": "dsolab",      
+  # 服务IP 
+  "ip": "108.x.x.136",    
+  # 服务端口
+  "port": "80",   
+  # 网站响应状态码
+  "code": "200",    
+  # 网站页面类型
+  "type": "text/html",        
+  # 网站server头信息
+  "server": "nginx/1.16.1", 
+  # 网站响应body信息（仅-r on时返回）
+  "body": "<html>...</html>"                    
 }
-
-
-
 ```
 
 TCP OUTPUT JSON
 
 ```
 {
-  "pro": "TCP",                                # 协议
-  "tag": "dsolab",                             # 来源标识
-  "ip": "192.x.x.53",                          # 服务IP 
-  "port": "3306",                              # 服务端口
-  "data": "590000000a352e352e352d31302e312e32342d4d61726961444200a601000061655662665b776200fff72102003fa015000000000000000000006451474f396b345e5f40614a006d7973716c5f6e61746976655f70617373776f726400"                                     # TCP第一个响应报文（仅-r on时返回）
+  # 协议
+  "pro": "TCP",      
+  # 来源标识
+  "tag": "dsolab",    
+  # 服务IP
+  "ip": "192.x.x.53", 
+  # 服务端口
+  "port": "3306",     
+  # TCP第一个响应报文（仅-r on时返回）
+  "data": "590000000a352e352e352d31302e312e32342d4d61726961444200a601000061655662665b776200fff72102003fa015000000000000000000006451474f396b345e5f40614a006d7973716c5f6e61746976655f70617373776f726400"                                     
 }
 ```
 
