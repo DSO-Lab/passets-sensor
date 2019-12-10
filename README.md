@@ -1,16 +1,16 @@
 ### 项目简述
 
-基于pyshark、tshark、pf_ring实现实时流量分析，使用syslog方式输出TCP及HTTP两种json格式数据。
+基于pyshark、tshark、pcap、pf_ring实现实时流量分析，使用syslog方式输出TCP及HTTP两种资产数据。
 
 ### 参数说明
 
 ```
 -i  捕获流量的网卡接口，例如：eth0、ens192
--t  发送的Syslog打标签，用于标识流量来源
--s  Syslog服务器地址
--p  Syslog服务器监听端口
--r  是否收集HTTP响应头和正文的开关，off|on
--d  是否在Stdout打印数据的开关，off|on
+-t  发送的syslog打标签，用于标识流量来源
+-s  syslog服务器地址
+-p  syslog服务器监听端口
+-r  是否深度资产信息采集，off|on
+-d  是否在stdout打印数据的开关，off|on
 ```
 
 ### Dockerfile
@@ -78,11 +78,49 @@ docker run --restart=unless-stopped -d -e tag="localhost" -e interface="ens192" 
 docker run --restart=unless-stopped -d -e tag="localhost" -e interface="ens192" -e ip="SyslogIP" -e port="SyslogPort" -e switch="on" -e debug="off" --net=host -v /tmp:/mnt -it doslab/passets-sensor:<tag> /bin/bash
 ```
 
+### 输出数据格式
+
+HTTP OUTPUT JSON
+
+```
+{
+  
+  "url": "http://www.dsolab.org/",              # URL
+  "pro": "HTTP",								# 协议
+  "tag": "dsolab",                              # 来源标识
+  "ip": "108.x.x.136",                          # 服务IP 
+  "port": "80",                                 # 服务端口
+  "code": "200",                                # 网站响应状态码
+  "type": "text/html",                          # 网站页面类型
+  "server": "nginx/1.16.1",                     # 网站server头信息
+  "body": "<html>...</html>"                    # 网站响应body信息（仅-r on时返回）
+}
+
+
+
+```
+
+TCP OUTPUT JSON
+
+```
+{
+  "pro": "TCP",                                # 协议
+  "tag": "dsolab",                             # 来源标识
+  "ip": "192.x.x.53",                          # 服务IP 
+  "port": "3306",                              # 服务端口
+  "data": "590000000a352e352e352d31302e312e32342d4d61726961444200a601000061655662665b776200fff72102003fa015000000000000000000006451474f396b345e5f40614a006d7973716c5f6e61746976655f70617373776f726400"                                     # TCP第一个响应报文（仅-r on时返回）
+}
+```
+
 ### FAQ
 
 Q: 为什么无法捕获网口流量？
 
 > 首先确认网口流量镜像配置正确，然后要确认网络工作模式（network_mode）是host。
+
+Q: 深度资产信息采集，有哪些用途？
+
+> 当-r on时，开启深度资产信息采集，会采集HTTP页面html数据和TCP第一个响应报文数据，数据可以用于协议识别、web应用指纹识别。但是，采集压力会上升，性能会下降。
 
 Q：是否一定需要安装pf_ring？
 
