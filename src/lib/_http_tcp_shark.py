@@ -10,7 +10,9 @@ from cacheout import Cache
 
 class tcp_http_sniff():
 
-	def __init__(self,interface,display_filter,syslog_ip,syslog_port,display_switch,custom_tag,return_deep_info,filter_rules,cache_size,bpf_filter):
+	def __init__(self,interface,display_filter,syslog_ip,syslog_port,display_switch,custom_tag,return_deep_info,filter_rules,cache_size,bpf_filter,timeout,debug):
+		self.debug = debug
+		self.timeout = timeout
 		self.bpf_filter = bpf_filter
 		self.cache_size = cache_size
 		self.filter_rules = filter_rules
@@ -22,7 +24,7 @@ class tcp_http_sniff():
 		self.interface = interface
 		self.display_filter = display_filter
 		self.display_switch = display_switch
-		self.pktcap = pyshark.LiveCapture(interface=self.interface, bpf_filter=self.bpf_filter, display_filter=self.display_filter)
+		self.pktcap = pyshark.LiveCapture(interface=self.interface, bpf_filter=self.bpf_filter, display_filter=self.display_filter, debug=self.debug)
 		self.http_cache = Cache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
 		self.tcp_cache = Cache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
 	# 根据response_code和content_type过滤
@@ -34,7 +36,7 @@ class tcp_http_sniff():
 		return False
 	
 	def run(self):
-		self.pktcap.apply_on_packets(self.proc_packet)
+		self.pktcap.apply_on_packets(self.proc_packet,timeout=self.timeout)
 
 	def proc_packet(self, pkt):
 		try:
