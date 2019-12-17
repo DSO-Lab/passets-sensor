@@ -64,7 +64,7 @@ if __name__ == '__main__':
 	# check_lock()
 
 	try:
-		opts,args = getopt.getopt(sys.argv[1:],'i: s: p: d: t: r: n:')
+		opts,args = getopt.getopt(sys.argv[1:],'i: s: p: d: t: r: c: T:')
 	except:
 		Usage()
 	if len(opts) < 4:
@@ -87,8 +87,10 @@ if __name__ == '__main__':
 			return_switch_str = str(a)
 			if return_switch_str == 'on':
 				return_deep_info = True
-		if o == '-n':
+		if o == '-c':
 			cache_size = int(a)
+		if o == '-T':
+			timeout = int(a)
 	if interface and syslog_ip and syslog_port and cache_size:
 		try:
 			main()

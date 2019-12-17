@@ -20,4 +20,4 @@ RUN apt-get -y update && \
     apt-get autoremove && \
     rm -f apt-ntop-stable.deb
 
-ENTRYPOINT ["/bin/bash","-c","/usr/bin/python3 /root/sensor/main.py -i $interface -t $tag -s $ip -p $port -r $switch -d $debug"]
+ENTRYPOINT ["/bin/bash","-c","/usr/bin/python3 /root/sensor/main.py -i $interface -t $tag -s $ip -p $port -c $cache -r $switch -T $timeout -d $debug"]
