@@ -11,6 +11,8 @@
 -p  syslog服务器监听端口
 -r  是否深度资产信息采集，off|on
 -d  是否在stdout打印数据的开关，off|on
+-c	瞬时缓存大小，用于采集过滤瞬时重复
+-T	防止内存耗尽，定期重启采集节点
 ```
 
 ### Dockerfile
@@ -18,24 +20,27 @@
 ```
 FROM docker.io/ubuntu:18.04
 
-COPY src /root/passets-sensor
+COPY src /root/sensor
 
-RUN	apt-get -y update && \
-	apt-get -y install software-properties-common wget && \
-	wget -q http://apt-stable.ntop.org/18.04/all/apt-ntop-stable.deb && \
-	dpkg -i apt-ntop-stable.deb && \
-	apt-get clean all && \
-	apt-get -y update && \
-	apt-get -y install pfring && \
-	DEBIAN_FRONTEND="noninteractive" apt-get -y install tshark && \
-	apt-get -y install python3 python3-pip python3-lxml && \
-	pip3 install cacheout && \
-	pip3 install pyshark && \
-	chmod 750 /usr/bin/dumpcap && \
-	chgrp root /usr/bin/dumpcap && \
-	apt-get autoclean
+RUN apt-get -y update && \
+    apt-get -y install software-properties-common wget && \
+    wget -q http://apt-stable.ntop.org/18.04/all/apt-ntop-stable.deb && \
+    dpkg -i apt-ntop-stable.deb && \
+    apt-get clean all && \
+    apt-get -y update && \
+    apt-get -y install pfring && \
+    DEBIAN_FRONTEND="noninteractive" apt-get -y install tshark && \
+    apt-get -y install python3 python3-pip python3-lxml && \
+    pip3 install cacheout && \
+    pip3 install pyshark && \
+    chmod 750 /usr/bin/dumpcap && \
+    chgrp root /usr/bin/dumpcap && \
+    apt-get clean all && \
+    apt-get autoclean && \
+    apt-get autoremove && \
+    rm -f apt-ntop-stable.deb
 
-ENTRYPOINT ["/bin/bash","-c","/usr/bin/python3 /root/passets-sensor/main.py -i $interface -t $tag -s $ip -p $port -r $switch -d $debug"]
+ENTRYPOINT ["/bin/bash","-c","/usr/bin/python3 /root/sensor/main.py -i $interface -t $tag -s $ip -p $port -c $cache -r $switch -T $timeout -d $debug"]
 ```
 
 镜像构建：
@@ -44,7 +49,7 @@ ENTRYPOINT ["/bin/bash","-c","/usr/bin/python3 /root/passets-sensor/main.py -i $
 docker build -t passets-sensor:<tag> .
 ```
 
-### docker-compose
+### docker-compose运行
 
 ```
 version: "3"
@@ -61,21 +66,17 @@ services:
       - ip=SyslogIP
       - port=SyslogPort
       - switch=on
+      - cache=1024
+      - timeout=3600
       - debug=off
     network_mode: host
     restart: unless-stopped
 ```
 
-### 容器启动
+### CMD运行
 
-#### 启动自行编译的镜像
 ```
-docker run --restart=unless-stopped -d -e tag="localhost" -e interface="ens192" -e ip="SyslogIP" -e port="SyslogPort" -e switch="on" -e debug="off" --net=host -v /tmp:/mnt -it passets-sensor:<tag> /bin/bash
-```
-
-### 启动 Docker HUB 中的镜像
-```
-docker run --restart=unless-stopped -d -e tag="localhost" -e interface="ens192" -e ip="SyslogIP" -e port="SyslogPort" -e switch="on" -e debug="off" --net=host -v /tmp:/mnt -it doslab/passets-sensor:<tag> /bin/bash
+docker run --restart=unless-stopped -d -e tag="localhost" -e interface="ens192" -e ip="SyslogIP" -e port="SyslogPort" -e switch="on" -e debug="off" -e cache="1024" -e timeout="3600" --net=host -v /tmp:/mnt -it doslab/passets-sensor:<tag> /bin/bash
 ```
 
 ### 输出数据格式

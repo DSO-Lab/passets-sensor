@@ -4,7 +4,7 @@ services:
   passets-sensor:
     build:
       context: ./
-    image: passets-sensor:1.0.0
+    image: dsolab/passets-sensor:1.0.0
     container_name: passets-sensor
     environment:
       - tag=localhost
@@ -12,6 +12,8 @@ services:
       - ip=SyslogIP
       - port=SyslogPort
       - switch=on
+      - cache=1024
+      - timeout=3600
       - debug=off
     network_mode: host
     restart: unless-stopped
