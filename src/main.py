@@ -28,6 +28,7 @@ filter_rules = {
 		"audio/",
 		"video/",
 		"image/",
+		"font/",
 		"application/pdf",
 		"application/msword",
 		"application/javascript",
