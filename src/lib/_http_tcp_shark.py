@@ -11,7 +11,7 @@ from cacheout import Cache
 
 class tcp_http_sniff():
 
-	def __init__(self,interface,display_filter,syslog_ip,syslog_port,display_switch,custom_tag,return_deep_info,filter_rules,cache_size,bpf_filter,timeout,debug):
+	def __init__(self,interface,display_filter,syslog_ip,syslog_port,custom_tag,return_deep_info,filter_rules,cache_size,bpf_filter,timeout,debug):
 		self.debug = debug
 		self.timeout = timeout
 		self.bpf_filter = bpf_filter
@@ -24,7 +24,6 @@ class tcp_http_sniff():
 		self.log_obj = _logging(self.syslog_ip,self.syslog_port)
 		self.interface = interface
 		self.display_filter = display_filter
-		self.display_switch = display_switch
 		self.pktcap = pyshark.LiveCapture(interface=self.interface, bpf_filter=self.bpf_filter, display_filter=self.display_filter, debug=self.debug)
 		self.http_cache = Cache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
 		self.tcp_cache = Cache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
@@ -54,7 +53,7 @@ class tcp_http_sniff():
 					pkt_json = self.proc_tcp(pkt)
 
 			if pkt_json:
-				if self.display_switch:
+				if self.debug:
 					print(json.dumps(pkt_json))
 				self.log_obj.info(json.dumps(pkt_json))
 
@@ -63,7 +62,7 @@ class tcp_http_sniff():
 			# error_log_json = {}
 			# error_log_json["custom_tag"] = self.custom_tag
 			# error_log_json["error_log"] = str(traceback.format_exc())
-			# if self.display_switch:
+			# if self.debug:
 			# 	print(json.dumps(error_log_json))
 			# self.log_obj.error(json.dumps(error_log_json))
 	

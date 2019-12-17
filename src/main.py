@@ -16,16 +16,14 @@ custom_tag = '127.0.0.1'
 bpf_filter = 'tcp'
 # display_filter
 display_filter = "tcp.flags.reset == 0"
-# 数据是否在console显示
-display_switch = False
+# debug模式，数据console输出
+debug = False
 # 开启深度数据分析
 return_deep_info = False
 # 缓存数量
 cache_size = 512
 # 最大运行时间，重启清空内存
 timeout = 3600
-# debug模式
-debug = False
 # 数据过滤配置
 filter_rules = {
 	"content_type":[
@@ -56,7 +54,7 @@ def Usage():
 	sys.exit()
 
 def main():
-	sniff_obj = tcp_http_sniff(interface, display_filter, syslog_ip, syslog_port, display_switch, custom_tag, return_deep_info, filter_rules, cache_size, bpf_filter, timeout, debug)
+	sniff_obj = tcp_http_sniff(interface, display_filter, syslog_ip, syslog_port, custom_tag, return_deep_info, filter_rules, cache_size, bpf_filter, timeout, debug)
 	sniff_obj.run()
 
 if __name__ == '__main__':
@@ -82,16 +80,15 @@ if __name__ == '__main__':
 		if o == '-p': 
 			syslog_port = int(a)
 		if o == '-d':
-			display_str = str(a)
-			if display_str == 'on':
-				display_switch = True
+			debug_str = str(a)
+			if debug_str == 'on':
+				debug = True
 		if o == '-r':
 			return_switch_str = str(a)
 			if return_switch_str == 'on':
 				return_deep_info = True
 		if o == '-n':
 			cache_size = int(a)
-
 	if interface and syslog_ip and syslog_port and cache_size:
 		try:
 			main()
