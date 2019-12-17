@@ -22,6 +22,10 @@ display_switch = False
 return_deep_info = False
 # 缓存数量
 cache_size = 512
+# 最大运行时间，重启清空内存
+timeout = 3600
+# debug模式
+debug = False
 # 数据过滤配置
 filter_rules = {
 	"content_type":[
@@ -52,7 +56,7 @@ def Usage():
 	sys.exit()
 
 def main():
-	sniff_obj = tcp_http_sniff(interface, display_filter, syslog_ip, syslog_port, display_switch, custom_tag, return_deep_info, filter_rules, cache_size, bpf_filter)
+	sniff_obj = tcp_http_sniff(interface, display_filter, syslog_ip, syslog_port, display_switch, custom_tag, return_deep_info, filter_rules, cache_size, bpf_filter, timeout, debug)
 	sniff_obj.run()
 
 if __name__ == '__main__':

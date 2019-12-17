@@ -4,13 +4,16 @@ import pyshark
 import json
 import base64
 import time
+import re
 import traceback
 from ._logging import _logging
 from cacheout import Cache
 
 class tcp_http_sniff():
 
-	def __init__(self,interface,display_filter,syslog_ip,syslog_port,display_switch,custom_tag,return_deep_info,filter_rules,cache_size,bpf_filter):
+	def __init__(self,interface,display_filter,syslog_ip,syslog_port,display_switch,custom_tag,return_deep_info,filter_rules,cache_size,bpf_filter,timeout,debug):
+		self.debug = debug
+		self.timeout = timeout
 		self.bpf_filter = bpf_filter
 		self.cache_size = cache_size
 		self.filter_rules = filter_rules
@@ -22,9 +25,12 @@ class tcp_http_sniff():
 		self.interface = interface
 		self.display_filter = display_filter
 		self.display_switch = display_switch
-		self.pktcap = pyshark.LiveCapture(interface=self.interface, bpf_filter=self.bpf_filter, display_filter=self.display_filter)
+		self.pktcap = pyshark.LiveCapture(interface=self.interface, bpf_filter=self.bpf_filter, display_filter=self.display_filter, debug=self.debug)
 		self.http_cache = Cache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
 		self.tcp_cache = Cache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
+		# 检测页面编码的正则表达式
+		self.encode_regex = re.compile(r'<meta [^>]*?charset=["\']?([^"\'\s]+)["\']?', re.I)
+
 	# 根据response_code和content_type过滤
 	def http_filter(self,key,value):
 		if key in self.filter_rules:
@@ -34,7 +40,7 @@ class tcp_http_sniff():
 		return False
 	
 	def run(self):
-		self.pktcap.apply_on_packets(self.proc_packet)
+		self.pktcap.apply_on_packets(self.proc_packet,timeout=self.timeout)
 
 	def proc_packet(self, pkt):
 		try:
@@ -73,11 +79,11 @@ class tcp_http_sniff():
 			src_addr = pkt.ip.src
 			src_port = pkt[pkt.transport_layer].srcport
 			
-			if self.return_deep_info:
-				cache_url = self.http_cache.get(pkt.tcp.stream)
-				if cache_url:
-					pkt_json['url'] = cache_url
-					self.http_cache.delete(pkt.tcp.stream)
+			cache_url = self.http_cache.get(pkt.tcp.stream)
+			if cache_url:
+				pkt_json['url'] = cache_url
+				self.http_cache.delete(pkt.tcp.stream)
+			
 			if 'url' not in pkt_json:
 				if 'response_for_uri' in http_dict:
 					pkt_json["url"] = pkt.http.response_for_uri
@@ -100,11 +106,6 @@ class tcp_http_sniff():
 
 			pkt_json["pro"] = 'HTTP'
 			pkt_json["tag"] = self.custom_tag
-			# pkt_json["src_addr"] = src_addr
-			# pkt_json["src_port"] = src_port
-			# pkt_json["dst_addr"] = pkt.ip.dst
-			# pkt_json["dst_port"] = pkt[pkt.transport_layer].dstport
-
 			pkt_json["ip"] = src_addr
 			pkt_json["port"] = src_port
 
@@ -129,13 +130,11 @@ class tcp_http_sniff():
 
 			# -r on开启深度数据分析，返回header和body等数据
 			if self.return_deep_info:
-				charset = 'windows-1252'
-				# 根据Content-Type处理编码
-				if 'type' in pkt_json:
-					# 提取头中的编码
-					if 'gbk' in pkt_json["type"] or 'gb2312' in pkt_json["type"]:
-						charset = 'gbk'
-					elif 'utf-8' in pkt_json["type"]:
+				charset = 'utf-8'
+				# 检测 Content-Type 中的编码信息
+				if 'type' in pkt_json and 'charset=' in pkt_json["type"]:
+					charset = pkt_json["type"][pkt_json["type"].find('charset=')+8:].strip().lower()
+					if not charset or charset == 'iso-8859-1':
 						charset = 'utf-8'
 						
 				if 'payload' in dir(pkt.tcp):
@@ -148,13 +147,11 @@ class tcp_http_sniff():
 
 				if 'file_data' in http_dict and pkt.http.file_data.raw_value and pkt_json['type'] != 'application/octet-stream':
 					data = bytes.fromhex(pkt.http.file_data.raw_value)
-					# 根据页面HEAD处理编码
+					# 检测页面 Meta 中的编码信息
 					data_head = data[:500] if data.find(b'</head>', 0, 1024) == -1 else data[:data.find(b'</head>')]
-					data_head_str = str(data_head, 'utf-8', 'ignore').lower()
-					if 'charset=gbk' in data_head_str or 'charset=gb2312' in data_head_str:
-						charset = 'gbk'
-					elif 'charset=utf-8' in data_head_str:
-						charset = 'utf-8'
+					match = self.encode_regex.search(data_head)
+					if match:
+						charset = match.group(1).lower()
 					
 					response_body = self.proc_body(str(data, charset, 'ignore'), 16*1024)
 					pkt_json["body"] = response_body
