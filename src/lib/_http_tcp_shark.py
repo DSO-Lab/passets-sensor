@@ -6,6 +6,7 @@ import base64
 import time
 import re
 import traceback
+import concurrent.futures
 from ._logging import _logging
 from cacheout import Cache
 
@@ -28,7 +29,7 @@ class tcp_http_sniff():
 		self.http_cache = Cache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
 		self.tcp_cache = Cache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
 		# 检测页面编码的正则表达式
-		self.encode_regex = re.compile(r'<meta [^>]*?charset=["\']?([^"\'\s]+)["\']?', re.I)
+		self.encode_regex = re.compile(b'<meta [^>]*?charset=["\']?([^"\'\s]+)["\']?', re.I)
 
 	# 根据response_code和content_type过滤
 	def http_filter(self,key,value):
@@ -39,8 +40,10 @@ class tcp_http_sniff():
 		return False
 	
 	def run(self):
-		self.pktcap.apply_on_packets(self.proc_packet,timeout=self.timeout)
-
+		try:
+			self.pktcap.apply_on_packets(self.proc_packet,timeout=self.timeout)
+		except concurrent.futures.TimeoutError:
+			print("\nTimeoutError.")
 	def proc_packet(self, pkt):
 		try:
 			pkt_json = None
@@ -133,9 +136,8 @@ class tcp_http_sniff():
 				# 检测 Content-Type 中的编码信息
 				if 'type' in pkt_json and 'charset=' in pkt_json["type"]:
 					charset = pkt_json["type"][pkt_json["type"].find('charset=')+8:].strip().lower()
-					if not charset or charset == 'iso-8859-1':
+					if not charset :
 						charset = 'utf-8'
-						
 				if 'payload' in dir(pkt.tcp):
 					payload = bytes.fromhex(str(pkt.tcp.payload).replace(':', ''))
 					if payload.find(b'HTTP/') == 0:
@@ -150,8 +152,7 @@ class tcp_http_sniff():
 					data_head = data[:500] if data.find(b'</head>', 0, 1024) == -1 else data[:data.find(b'</head>')]
 					match = self.encode_regex.search(data_head)
 					if match:
-						charset = match.group(1).lower()
-					
+						charset = str(match.group(1).lower(), 'utf-8', 'ignore')
 					response_body = self.proc_body(str(data, charset, 'ignore'), 16*1024)
 					pkt_json["body"] = response_body
 				else:
@@ -192,9 +193,20 @@ class tcp_http_sniff():
 			tcp_info = self.tcp_cache.get(tcp_stream)
 			if tcp_info:
 				tcp_info_list = tcp_info.split(":")
-				pkt_json["ip"] = tcp_info_list[0]
-				pkt_json["port"] = tcp_info_list[1]
-				pkt_json["data"] = pkt.tcp.payload.replace(":","")
+				tcp_ip = tcp_info_list[0]
+				tcp_port = tcp_info_list[1]
+				pkt_json["ip"] = tcp_ip
+				pkt_json["port"] = tcp_port
+				payload_data = pkt.tcp.payload.replace(":","")
+				# if payload_data.startswith("48545450"):
+				# 	return None
+				# HTTPS Protocol
+				# TODO: other https port support 
+				if tcp_port == "443" and payload_data.startswith("1603"):
+					pkt_json["pro"] = 'HTTPS'
+					pkt_json["url"] = "https://%s/"%(tcp_ip)
+				else:
+					pkt_json["data"] = payload_data
 				self.tcp_cache.delete(tcp_stream)
 				return pkt_json
 		return None
