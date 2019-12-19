@@ -21,7 +21,7 @@ debug = False
 # 开启深度数据分析
 return_deep_info = False
 # 缓存数量
-cache_size = 512
+cache_size = 1024
 # 最大运行时间，重启清空内存
 timeout = 3600
 # 数据过滤配置

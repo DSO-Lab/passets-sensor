@@ -1,5 +1,7 @@
 FROM docker.io/ubuntu:18.04
 
+ENV TZ="Asia/Shanghai" tag="localhost" cache="1024" switch="on" timeout="3600" debug="off"
+
 COPY src /root/sensor
 
 RUN apt-get -y update && \
