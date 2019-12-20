@@ -2,54 +2,35 @@
 
 基于pyshark、tshark、pcap、pf_ring实现实时流量分析，使用syslog方式输出TCP及HTTP两种资产数据。
 
-### 参数说明
+### main.py参数说明
 
 ```
--i  捕获流量的网卡接口，例如：eth0、ens192
--t  发送的syslog打标签，用于标识流量来源
--s  syslog服务器地址
--p  syslog服务器监听端口
--r  是否深度资产信息采集，off|on
--d  是否在stdout打印数据的开关，off|on
--c  瞬时缓存大小，用于采集过滤瞬时重复
--T  防止内存耗尽，定期重启采集节点
+-i  流量采集网卡（例如：eth0、ens192），需必填
+-s  syslog服务器地址，需必填
+-p  syslog服务器监听端口，需必填
+-t  标识流量来源，Default:localhost
+-r  深度资产信息采集开关，off|on，Default:on
+-d  Debug调试信息开关，off|on，Default:off
+-c  缓存大小，用于过滤瞬时重复数据，Default:1024
+-T  定期重启清空内存，Default:3600
 ```
 
-### Dockerfile
-
-```
-FROM docker.io/ubuntu:18.04
-
-COPY src /root/sensor
-
-RUN apt-get -y update && \
-    apt-get -y install software-properties-common wget && \
-    wget -q http://apt-stable.ntop.org/18.04/all/apt-ntop-stable.deb && \
-    dpkg -i apt-ntop-stable.deb && \
-    apt-get clean all && \
-    apt-get -y update && \
-    apt-get -y install pfring && \
-    DEBIAN_FRONTEND="noninteractive" apt-get -y install tshark && \
-    apt-get -y install python3 python3-pip python3-lxml && \
-    pip3 install cacheout && \
-    pip3 install pyshark && \
-    chmod 750 /usr/bin/dumpcap && \
-    chgrp root /usr/bin/dumpcap && \
-    apt-get clean all && \
-    apt-get autoclean && \
-    apt-get autoremove && \
-    rm -f apt-ntop-stable.deb
-
-ENTRYPOINT ["/bin/bash","-c","/usr/bin/python3 /root/sensor/main.py -i $interface -t $tag -s $ip -p $port -c $cache -r $switch -T $timeout -d $debug"]
-```
-
-镜像构建：
+### Dockerfile构建
 
 ```
 docker build -t passets-sensor:<tag> .
 ```
 
 ### docker-compose运行
+
+```
+# 启动
+docker-compose up -d
+# 停止
+docker-compose down
+```
+
+docker-compose.yml配置文件说明：
 
 ```
 version: "3"
@@ -61,14 +42,14 @@ services:
     image: dsolab/passets-sensor:<tag>
     container_name: passets-sensor
     environment:
-      - tag=localhost
-      - interface=ens192
-      - ip=SyslogIP
-      - port=SyslogPort
-      - switch=on
-      - cache=1024
-      - timeout=3600
-      - debug=off
+      - interface=<ens192>			# 量采集网卡（例如：eth0、ens192），需必填
+      - ip=SyslogIP					# syslog服务器地址，需必填
+      - port=SyslogPort				# syslog服务器监听端口，需必填
+      - tag=localhost				# 标识流量来源，Default:localhost
+      - switch=on					# 深度资产信息采集开关，off|on，Default:on
+      - cache=1024					# 缓存大小，用于过滤瞬时重复数据，Default:1024
+      - timeout=3600				# 定期重启清空内存，Default:3600
+      - debug=off					# Debug调试信息开关，off|on，Default:off
     network_mode: host
     restart: unless-stopped
 ```
@@ -76,7 +57,7 @@ services:
 ### CMD运行
 
 ```
-docker run --restart=unless-stopped -d -e tag="localhost" -e interface="ens192" -e ip="SyslogIP" -e port="SyslogPort" -e switch="on" -e debug="off" -e cache="1024" -e timeout="3600" --net=host -v /tmp:/mnt -it doslab/passets-sensor:<tag> /bin/bash
+docker run --restart=unless-stopped -d -e tag="localhost" -e interface="ens192" -e ip="SyslogIP" -e port="SyslogPort" -e switch="on" -e debug="off" -e cache="1024" -e timeout="3600" --net=host -it doslab/passets-sensor:<tag> /bin/bash
 ```
 
 ### 输出数据格式
@@ -87,7 +68,7 @@ HTTP OUTPUT JSON
 {
   # URL
   "url": "http://www.dsolab.org/",    
-  # 协议
+  # 协议（HTTP/HTTPS）
   "pro": "HTTP",
   # 来源标识
   "tag": "dsolab",      
