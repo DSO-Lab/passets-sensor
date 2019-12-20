@@ -43,13 +43,13 @@ services:
     container_name: passets-sensor
     environment:
       - interface=<ens192>			# 量采集网卡（例如：eth0、ens192），需必填
-      - ip=SyslogIP					# syslog服务器地址，需必填
+      - ip=SyslogIP				# syslog服务器地址，需必填
       - port=SyslogPort				# syslog服务器监听端口，需必填
       - tag=localhost				# 标识流量来源，Default:localhost
-      - switch=on					# 深度资产信息采集开关，off|on，Default:on
-      - cache=1024					# 缓存大小，用于过滤瞬时重复数据，Default:1024
+      - switch=on				# 深度资产信息采集开关，off|on，Default:on
+      - cache=1024				# 缓存大小，用于过滤瞬时重复数据，Default:1024
       - timeout=3600				# 定期重启清空内存，Default:3600
-      - debug=off					# Debug调试信息开关，off|on，Default:off
+      - debug=off				# Debug调试信息开关，off|on，Default:off
     network_mode: host
     restart: unless-stopped
 ```
