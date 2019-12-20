@@ -5,7 +5,6 @@ from lib._logging import check_lock
 import getopt
 import sys
 import os
-import json
 
 # syslog服务器地址和端口信息
 syslog_ip = '127.0.0.1'
