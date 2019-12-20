@@ -37,7 +37,7 @@ filter_rules = {
 		"text/javascript",
 		"text/css"],
 	"response_code":[
-		'400', '404', '301', '302', '304'
+		'400', '404', '304'
 	]
 }
 

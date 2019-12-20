@@ -25,7 +25,7 @@ class tcp_http_sniff():
 		self.log_obj = _logging(self.syslog_ip,self.syslog_port)
 		self.interface = interface
 		self.display_filter = display_filter
-		self.pktcap = pyshark.LiveCapture(interface=self.interface, bpf_filter=self.bpf_filter, use_json=True, display_filter=self.display_filter, debug=self.debug)
+		self.pktcap = pyshark.LiveCapture(interface=self.interface, bpf_filter=self.bpf_filter, use_json=False, display_filter=self.display_filter, debug=self.debug)
 		self.http_cache = Cache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
 		self.tcp_cache = Cache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
 		# 检测页面编码的正则表达式
