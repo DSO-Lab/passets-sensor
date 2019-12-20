@@ -12,12 +12,12 @@ from cacheout import Cache
 
 class tcp_http_sniff():
 
-	def __init__(self,interface,display_filter,syslog_ip,syslog_port,custom_tag,return_deep_info,filter_rules,cache_size,bpf_filter,timeout,debug):
+	def __init__(self,interface,display_filter,syslog_ip,syslog_port,custom_tag,return_deep_info,http_filter_json,cache_size,bpf_filter,timeout,debug):
 		self.debug = debug
 		self.timeout = timeout
 		self.bpf_filter = bpf_filter
 		self.cache_size = cache_size
-		self.filter_rules = filter_rules
+		self.http_filter_json = http_filter_json
 		self.return_deep_info = return_deep_info
 		self.custom_tag = custom_tag
 		self.syslog_ip = syslog_ip
@@ -33,8 +33,8 @@ class tcp_http_sniff():
 
 	# 根据response_code和content_type过滤
 	def http_filter(self,key,value):
-		if key in self.filter_rules:
-			for rule in self.filter_rules[key]:
+		if key in self.http_filter_json:
+			for rule in self.http_filter_json[key]:
 				if rule in value:
 					return True
 		return False
@@ -112,14 +112,14 @@ class tcp_http_sniff():
 			pkt_json["port"] = src_port
 
 			if 'response_code' in http_dict:
-				if self.filter_rules:
+				if self.http_filter_json:
 					return_status = self.http_filter('response_code', pkt.http.response_code)
 					if return_status:
 						return None
 				pkt_json["code"] = pkt.http.response_code
 			
 			if 'content_type' in http_dict:
-				if self.filter_rules:
+				if self.http_filter_json:
 					return_status = self.http_filter('content_type', pkt.http.content_type)
 					if return_status:
 						return None

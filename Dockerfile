@@ -1,6 +1,13 @@
 FROM docker.io/ubuntu:18.04
 
-ENV TZ="Asia/Shanghai" tag="localhost" cache="1024" switch="on" timeout="3600" debug="off"
+ENV TZ="Asia/Shanghai" \
+    tag="localhost" \
+    cache="1024" \
+    switch="on" \
+    timeout="3600" \
+    debug="off" \
+    http_filter_code="400,404,304" \
+    http_filter_type="audio/,video/,image/,font/,application/pdf,application/msword,application/javascript,text/javascript,text/css"
 
 COPY src /root/sensor
 

@@ -4,6 +4,8 @@ from lib._http_tcp_shark import tcp_http_sniff
 from lib._logging import check_lock
 import getopt
 import sys
+import os
+import json
 
 # syslog服务器地址和端口信息
 syslog_ip = '127.0.0.1'
@@ -19,42 +21,39 @@ display_filter = "tcp.flags.reset == 0"
 # debug模式，数据console输出
 debug = False
 # 开启深度数据分析
-return_deep_info = False
+return_deep_info = True
 # 缓存数量
 cache_size = 1024
-# 最大运行时间，重启清空内存
+# 定时清空内存
 timeout = 3600
-# 数据过滤配置
-filter_rules = {
-	"content_type":[
-		"audio/",
-		"video/",
-		"image/",
-		"font/",
-		"application/pdf",
-		"application/msword",
-		"application/javascript",
-		"text/javascript",
-		"text/css"],
-	"response_code":[
-		'400', '404', '304'
-	]
-}
+# HTTP数据过滤
+http_filter_code_list = list(set(filter(None, os.environ["http_filter_code"].replace(" ","").split(","))))
+http_filter_type_list = list(set(filter(None, os.environ["http_filter_type"].replace(" ","").split(","))))
+http_filter_json = {"response_code":http_filter_code_list,"content_type":http_filter_type_list}
 
 def Usage():
 	print('''
- ########################################################################
- #                         passets-sensor 1.0.1                         #
- ########################################################################
- ------------------------------------------------------------------------
+ ###################################################################
+ #                      passets-sensor 1.0.0                       #
+ ###################################################################
+ -------------------------------------------------------------------
  Usage:
- python3 main.py -i [interface] -t [tag] -s [syslog_ip] -p [syslog_port]
- ------------------------------------------------------------------------
+ python3 main.py [options] ...
+
+ -i <interface>     Name or idx of interface(def: None)		 
+ -s <syslog_ip>     Syslog server ip(def: None)
+ -p <syslog_port>   Syslog server port(def: None)
+ -t <tag>           Source identification(def: localhost)
+ -c <cache_size>    Cache size(def: 1024)
+ -T <timeout>       Memory clear time(def: 3600 sec)
+ -r <off|on>        Depth information switch(def: on)
+ -d <off|on>        Debug information switch(def: off)
+ -------------------------------------------------------------------
 	''')
 	sys.exit()
 
 def main():
-	sniff_obj = tcp_http_sniff(interface, display_filter, syslog_ip, syslog_port, custom_tag, return_deep_info, filter_rules, cache_size, bpf_filter, timeout, debug)
+	sniff_obj = tcp_http_sniff(interface, display_filter, syslog_ip, syslog_port, custom_tag, return_deep_info, http_filter_json, cache_size, bpf_filter, timeout, debug)
 	sniff_obj.run()
 
 if __name__ == '__main__':
