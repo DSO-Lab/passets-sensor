@@ -26,9 +26,20 @@ cache_size = 1024
 # 定时清空内存
 timeout = 3600
 # HTTP数据过滤
-http_filter_code_list = list(set(filter(None, os.environ["http_filter_code"].replace(" ","").split(","))))
-http_filter_type_list = list(set(filter(None, os.environ["http_filter_type"].replace(" ","").split(","))))
-http_filter_json = {"response_code":http_filter_code_list,"content_type":http_filter_type_list}
+http_filter = {
+	"response_code": ['304', '400', '404'],
+	"content_type": [
+		'audio/',
+		'video/',
+		'image/',
+		'font/',
+		'application/pdf',
+		'application/msword',
+		'application/javascript',
+		'text/javascript',
+		'text/css'
+	]
+}
 
 def Usage():
 	print('''
@@ -52,7 +63,14 @@ def Usage():
 	sys.exit()
 
 def main():
-	sniff_obj = tcp_http_sniff(interface, display_filter, syslog_ip, syslog_port, custom_tag, return_deep_info, http_filter_json, cache_size, bpf_filter, timeout, debug)
+	# 接受通过环境变量传入的过滤设置
+	if 'http_filter_code' in os.environ:
+		http_filter['response_code'] = list(set(filter(None, os.environ["http_filter_code"].replace(" ","").split(","))))
+	if 'http_filter_type' in os.environ:
+		http_filter['content_type'] = list(set(filter(None, os.environ["http_filter_type"].replace(" ","").split(","))))
+	
+	sniff_obj = tcp_http_sniff(
+		interface, display_filter, syslog_ip, syslog_port, custom_tag, return_deep_info, http_filter, cache_size, bpf_filter, timeout, debug)
 	sniff_obj.run()
 
 if __name__ == '__main__':
