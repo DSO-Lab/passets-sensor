@@ -101,8 +101,8 @@ if __name__ == '__main__':
 				debug = True
 		if o == '-r':
 			return_switch_str = str(a)
-			if return_switch_str == 'on':
-				return_deep_info = True
+			if return_switch_str == 'off':
+				return_deep_info = False
 		if o == '-c':
 			cache_size = int(a)
 		if o == '-T':
