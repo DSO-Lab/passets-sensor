@@ -45,7 +45,7 @@ class tcp_http_sniff():
 		self.http_cache = Cache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
 		self.tcp_cache = Cache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
 		# 检测页面编码的正则表达式
-		self.encode_regex = re.compile(b'<meta [^>]*?charset=["\']?([^"\']+)["\']?', re.I)
+		self.encode_regex = re.compile(rb'<meta [^>]*?charset=["\']?([a-z\-\d]+)["\'>]?', re.I)
 
 	def http_filter(self, key, value):
 		"""
@@ -90,9 +90,8 @@ class tcp_http_sniff():
 					print(json.dumps(pkt_json))
 				self.log_obj.info(json.dumps(pkt_json))
 
-		except Exception as e:
-			print(e)
-			print(traceback.format_exc())
+		except:
+			traceback.print_exc()
 	
 	def proc_http(self, pkt):
 		"""
@@ -235,8 +234,8 @@ class tcp_http_sniff():
 			if tcp_info:
 				self.tcp_stream_cache.delete(tcp_stream)
 				
-				pkt_json["ip"] = pkt.ip.src
-				pkt_json["port"] = pkt[pkt.transport_layer].srcport
+				pkt_json["ip"] = pkt.ip.dst
+				pkt_json["port"] = pkt[pkt.transport_layer].dstport
 				payload_data = pkt.tcp.payload.replace(":","")
 				if payload_data.startswith("48545450"): # ^HTTP
 					return None
