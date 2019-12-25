@@ -268,4 +268,4 @@ class tcp_http_sniff():
 		if pos + 6 > len(json_data):
 			json_data = json_data[:pos]
 		
-		return json.loads(json_data + '"')
+		return json.loads(json_data.rstrip(r'\"') + '"')
