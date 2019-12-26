@@ -87,9 +87,10 @@ class tcp_http_sniff():
 					pkt_json = self.proc_tcp(pkt)
 
 			if pkt_json:
+				result = json.dumps(pkt_json)
 				if self.debug:
-					print(json.dumps(pkt_json))
-				self.log_obj.info(json.dumps(pkt_json))
+					print(result)
+				self.log_obj.info(result)
 
 		except:
 			traceback.print_exc()
@@ -233,10 +234,15 @@ class tcp_http_sniff():
 		if self.return_deep_info and pkt.tcp.seq == "1" and "payload" in dir(pkt.tcp) :
 			tcp_info = self.tcp_stream_cache.get(tcp_stream)
 			if tcp_info:
+				# 防止误处理客户端发第一个包的情况
+				src_host = '{}:{}'.format(pkt.ip.src, pkt[pkt.transport_layer].srcport)
+				if tcp_info != src_host:
+					return None
+				
 				self.tcp_stream_cache.delete(tcp_stream)
 				
-				pkt_json["ip"] = pkt.ip.dst
-				pkt_json["port"] = pkt[pkt.transport_layer].dstport
+				pkt_json["ip"] = pkt.ip.src
+				pkt_json["port"] = pkt[pkt.transport_layer].srcport
 				payload_data = pkt.tcp.payload.replace(":","")
 				if payload_data.startswith("48545450"): # ^HTTP
 					return None
