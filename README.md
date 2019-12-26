@@ -1,14 +1,8 @@
-### 项目简述
+## 项目简述
 
 基于pyshark、tshark、pcap、pf_ring实现实时流量分析，使用syslog方式输出TCP及HTTP两种资产数据。
 
-### 缓存机制说明
-
-本模块采用 LRU (最近最少使用)机制来进行数据缓存处理，以降低 logstash 的处理压力。
-
-LRU算法的设计原则是：如果一个数据在最近一段时间没有被访问到，那么在将来它被访问的可能性也很小。也就是说，当限定的空间已存满数据时，应当把最久没有被访问到的数据淘汰。
-
-### main.py参数说明
+## main.py参数说明
 
 ```
 -i  流量采集网卡（例如：eth0、ens192），需必填
@@ -21,7 +15,7 @@ LRU算法的设计原则是：如果一个数据在最近一段时间没有被�
 -T  定期重启清空内存，Default:3600
 ```
 
-### Dockerfile构建
+## Dockerfile构建
 
 ```
 docker build -t dsolab/passets-sensor:<tag> .
@@ -72,13 +66,13 @@ services:
     restart: unless-stopped
 ```
 
-### CMD运行
+## CMD运行
 
 ```
 docker run --restart=unless-stopped -d -e tag="localhost" -e interface="ens192" -e ip="SyslogIP" -e port="SyslogPort" -e switch="on" -e debug="off" -e cache="1024" -e timeout="3600" --net=host -it doslab/passets-sensor:<tag> /bin/bash
 ```
 
-### 输出数据格式
+## 输出数据格式
 
 HTTP OUTPUT JSON
 
@@ -122,7 +116,7 @@ TCP OUTPUT JSON
 }
 ```
 
-### FAQ
+## FAQ
 
 Q: 为什么无法捕获网口流量？
 
@@ -130,7 +124,27 @@ Q: 为什么无法捕获网口流量？
 
 Q: 深度资产信息采集，有哪些用途？
 
-> 当-r on时，开启深度资产信息采集，会采集HTTP页面html数据和TCP第一个响应报文数据，数据可以用于协议识别、web应用指纹识别。但是，采集压力会上升，性能会下降。
+> 当-r on时，开启深度资产信息采集，会采集HTTP页面html数据和TCP第一个响应报文数据，数据可以用于协议识别、web应用指纹识别，如识别。但是，采集压力会上升，性能会下降。
+
+Q：采用了哪种缓存机制？
+
+> 本模块采用 LRU (最近最少使用)机制来进行数据缓存处理，以降低 logstash 的处理压力。HTTP协议、TCP协议（含HTTPS）分别独享用户定义的缓存空间。
+
+Q：LRU算法的设计原则是什么？
+
+> 如果一个数据在最近一段时间没有被访问到，那么在将来它被访问的可能性也很小。也就是说，当限定的空间已存满数据时，应当把最久没有被访问到的数据淘汰。
+
+**深度资产信息采集**
+
+只有开启了深度资产信息采集开关，才可以采集到 HTTP 响应头、HTTP响应正文、TCP响应报文和HTTPS站点。
+
+**协议支持**
+
+- HTTP
+
+- HTTPS
+
+- TCP
 
 Q：是否一定需要安装pf_ring？
 

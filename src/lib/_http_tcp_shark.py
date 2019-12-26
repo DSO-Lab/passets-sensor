@@ -8,7 +8,7 @@ import re
 import traceback
 import concurrent.futures
 from ._logging import _logging
-from cacheout import Cache
+from cacheout import Cache, LRUCache
 
 class tcp_http_sniff():
 
@@ -42,8 +42,8 @@ class tcp_http_sniff():
 		self.pktcap = pyshark.LiveCapture(interface=self.interface, bpf_filter=self.bpf_filter, use_json=False, display_filter=self.display_filter, debug=self.debug)
 		self.http_stream_cache = Cache(maxsize=1500, ttl=15, timer=time.time, default=None)
 		self.tcp_stream_cache = Cache(maxsize=1500, ttl=15, timer=time.time, default=None)
-		self.http_cache = Cache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
-		self.tcp_cache = Cache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
+		self.http_cache = LRUCache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
+		self.tcp_cache = LRUCache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
 		# 检测页面编码的正则表达式
 		self.encode_regex = re.compile(rb'<meta [^>]*?charset=["\']?([a-z\-\d]+)["\'>]?', re.I)
 
