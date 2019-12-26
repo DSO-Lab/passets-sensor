@@ -12,7 +12,7 @@ from cacheout import Cache, LRUCache
 
 class tcp_http_sniff():
 
-	def __init__(self, interface, display_filter, syslog_ip, syslog_port, custom_tag, return_deep_info, http_filter_json, cache_size, bpf_filter, timeout, debug):
+	def __init__(self, interface, display_filter, syslog_ip, syslog_port, custom_tag, return_deep_info, http_filter_json, cache_size, session_size, bpf_filter, timeout, debug):
 		"""
 		构造函数
 		:param interface: 捕获流量的网卡名
@@ -23,6 +23,7 @@ class tcp_http_sniff():
 		:param return_deep_info: 是否处理更多信息，包括原始请求、响应头和正文
 		:param http_filter_json: HTTP过滤器配置，支持按状态和内容类型过滤
 		:param cache_size: 缓存的已处理数据条数，120秒内重复的数据将不会发送Syslog
+		:param session_size: 缓存的HTTP/TCP会话数量，16秒未使用的会话将被自动清除
 		:param bpf_filter: 数据包底层过滤器
 		:param timeout: 采集程序的运行超时时间，默认为启动后1小时自动退出
 		:param debug: 调试开关
@@ -40,8 +41,8 @@ class tcp_http_sniff():
 		self.interface = interface
 		self.display_filter = display_filter
 		self.pktcap = pyshark.LiveCapture(interface=self.interface, bpf_filter=self.bpf_filter, use_json=False, display_filter=self.display_filter, debug=self.debug)
-		self.http_stream_cache = Cache(maxsize=1500, ttl=15, timer=time.time, default=None)
-		self.tcp_stream_cache = Cache(maxsize=1500, ttl=15, timer=time.time, default=None)
+		self.http_stream_cache = Cache(maxsize=self.cache_size, ttl=16, timer=time.time, default=None)
+		self.tcp_stream_cache = Cache(maxsize=self.cache_size, ttl=16, timer=time.time, default=None)
 		self.http_cache = LRUCache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
 		self.tcp_cache = LRUCache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
 		# 检测页面编码的正则表达式

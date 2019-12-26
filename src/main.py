@@ -23,6 +23,8 @@ debug = False
 return_deep_info = True
 # 缓存数量
 cache_size = 1024
+# 流量回话数量
+session_size = 1024
 # 定时清空内存
 timeout = 3600
 # HTTP数据过滤
@@ -55,6 +57,7 @@ def Usage():
  -p <syslog_port>   Syslog server port(def: None)
  -t <tag>           Source identification(def: localhost)
  -c <cache_size>    Cache size(def: 1024)
+ -S <session_size>  Session size(def: 1024)
  -T <timeout>       Memory clear time(def: 3600 sec)
  -r <off|on>        Depth information switch(def: on)
  -d <off|on>        Debug information switch(def: off)
@@ -70,7 +73,7 @@ def main():
 		http_filter['content_type'] = list(set(filter(None, os.environ["http_filter_type"].replace(" ","").split(","))))
 	
 	sniff_obj = tcp_http_sniff(
-		interface, display_filter, syslog_ip, syslog_port, custom_tag, return_deep_info, http_filter, cache_size, bpf_filter, timeout, debug)
+		interface, display_filter, syslog_ip, syslog_port, custom_tag, return_deep_info, http_filter, cache_size, session_size, bpf_filter, timeout, debug)
 	sniff_obj.run()
 
 if __name__ == '__main__':
@@ -80,7 +83,7 @@ if __name__ == '__main__':
 	# check_lock()
 
 	try:
-		opts,args = getopt.getopt(sys.argv[1:],'i: s: p: d: t: r: c: T:')
+		opts,args = getopt.getopt(sys.argv[1:],'i: s: p: d: t: r: c: T: S:')
 	except:
 		Usage()
 	if len(opts) < 4:
@@ -105,9 +108,11 @@ if __name__ == '__main__':
 				return_deep_info = False
 		if o == '-c':
 			cache_size = int(a)
+		if o == '-S':
+			session_size = int(a)
 		if o == '-T':
 			timeout = int(a)
-	if interface and syslog_ip and syslog_port and cache_size:
+	if interface and syslog_ip and syslog_port and cache_size and session_size:
 		try:
 			main()
 		except KeyboardInterrupt:

@@ -12,6 +12,7 @@
 -r  深度资产信息采集开关，off|on，Default:on
 -d  Debug调试信息开关，off|on，Default:off
 -c  缓存大小，用于过滤瞬时重复数据，Default:1024
+-S  流量会话缓存大小，用于重组通讯会话，Default:1024
 -T  定期重启清空内存，Default:3600
 ```
 
