@@ -261,14 +261,17 @@ class tcp_http_sniff():
 
 	def proc_body_str(self, data, length):
 		"""
-		body按照字节大小截取，防止超长，截取开头和结尾
+		body按照字节大小截取，防止超长，截取开头2/3和结尾1/3
 		:param data: 原始数据
 		:param length: 截取的数据长度
 		:return: 截断后的数据		
 		"""
-		half_length = int(length//2)
-		intercept_data_head = data[:half_length]
-		intercept_data_end = data[-half_length:]
+		if len(data) <= length:
+			return data
+		head_length = int(length*2//3)
+		end_length = length - head_length
+		intercept_data_head = data[:head_length]
+		intercept_data_end = data[-end_length:]
 		return intercept_data_head+intercept_data_end
 
 	def proc_body_json(self, data, length):
