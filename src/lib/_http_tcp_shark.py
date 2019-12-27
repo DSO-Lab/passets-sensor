@@ -190,7 +190,8 @@ class tcp_http_sniff():
 					if match:
 						charset = str(match.group(1).strip().lower(), 'utf-8', 'ignore')
 					
-					response_body = self.proc_body(str(data, charset, 'ignore'), 16*1024)
+					response_body = self.proc_body_str(str(data, charset, 'ignore'), 16*1024)
+					# response_body = self.proc_body_json(str(data, charset, 'ignore'), 16*1024)
 					pkt_json["body"] = response_body
 				else:
 					pkt_json["body"] = ''
@@ -258,7 +259,19 @@ class tcp_http_sniff():
 				return pkt_json
 		return None
 
-	def proc_body(self, data, length):
+	def proc_body_str(self, data, length):
+		"""
+		body按照字节大小截取，防止超长，截取开头和结尾
+		:param data: 原始数据
+		:param length: 截取的数据长度
+		:return: 截断后的数据		
+		"""
+		half_length = int(length//2)
+		intercept_data_head = data[:half_length]
+		intercept_data_end = data[-half_length:]
+		return intercept_data_head+intercept_data_end
+
+	def proc_body_json(self, data, length):
 		"""
 		防止转换为 JSON 后超长的数据截取方法
 		:param data: 原始数据
