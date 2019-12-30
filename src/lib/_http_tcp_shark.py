@@ -32,6 +32,7 @@ class tcp_http_sniff():
 		self.timeout = timeout
 		self.bpf_filter = bpf_filter
 		self.cache_size = cache_size
+		self.session_size = session_size
 		self.http_filter_json = http_filter_json
 		self.return_deep_info = return_deep_info
 		self.custom_tag = custom_tag
@@ -41,10 +42,11 @@ class tcp_http_sniff():
 		self.interface = interface
 		self.display_filter = display_filter
 		self.pktcap = pyshark.LiveCapture(interface=self.interface, bpf_filter=self.bpf_filter, use_json=False, display_filter=self.display_filter, debug=self.debug)
-		self.http_stream_cache = Cache(maxsize=self.cache_size, ttl=16, timer=time.time, default=None)
-		self.tcp_stream_cache = Cache(maxsize=self.cache_size, ttl=16, timer=time.time, default=None)
-		self.http_cache = LRUCache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
-		self.tcp_cache = LRUCache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
+		self.http_stream_cache = Cache(maxsize=self.session_size, ttl=16, timer=time.time, default=None)
+		self.tcp_stream_cache = Cache(maxsize=self.session_size, ttl=16, timer=time.time, default=None)
+		if self.cache_size:
+			self.http_cache = LRUCache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
+			self.tcp_cache = LRUCache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
 		# 检测页面编码的正则表达式
 		self.encode_regex = re.compile(rb'<meta [^>]*?charset=["\']?([a-z\-\d]+)["\'>]?', re.I)
 
@@ -79,7 +81,7 @@ class tcp_http_sniff():
 		try:
 			pkt_json = None
 			pkt_dict = dir(pkt)
-			
+
 			if 'ip' in pkt_dict:
 				if 'http' in pkt_dict:
 					pkt_json = self.proc_http(pkt)
@@ -102,11 +104,11 @@ class tcp_http_sniff():
 		:return: JSON or None
 		"""
 		http_dict = dir(pkt.http)
-		
+
 		if 'request' in http_dict:
 			req = {
 				'url': pkt.http.request_full_uri if 'request_full_uri' in http_dict else pkt.http.request_uri,
-				'method': pkt.http.request_method
+				'method': pkt.http.request_method if 'request_method' in http_dict else ''
 			}
 			
 			self.http_stream_cache.set(pkt.tcp.stream, req)
@@ -135,12 +137,13 @@ class tcp_http_sniff():
 				else:
 					pkt_json["url"] = "http://%s:%s%s"%(src_addr, src_port, pkt_json["url"])
 
-			# 缓存机制，防止短时间大量处理重复响应
-			exists = self.http_cache.get(pkt_json['url'])
-			if exists:
-				return None
+			if self.cache_size:
+				# 缓存机制，防止短时间大量处理重复响应
+				exists = self.http_cache.get(pkt_json['url'])
+				if exists:
+					return None
 
-			self.http_cache.set(pkt_json["url"], True)
+				self.http_cache.set(pkt_json["url"], True)
 
 			pkt_json["pro"] = 'HTTP'
 			pkt_json["tag"] = self.custom_tag
@@ -218,11 +221,12 @@ class tcp_http_sniff():
 			server_port = pkt[pkt.transport_layer].srcport
 			tcp_info = '%s:%s' % (server_ip, server_port)
 
-			exists = self.tcp_cache.get(tcp_info)
-			if exists:
-				return None
-			
-			self.tcp_cache.set(tcp_info, True)
+			if self.cache_size:
+				exists = self.tcp_cache.get(tcp_info)
+				if exists:
+					return None
+				self.tcp_cache.set(tcp_info, True)
+
 			if self.return_deep_info:
 				self.tcp_stream_cache.set(tcp_stream, tcp_info)
 			else:

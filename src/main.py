@@ -72,8 +72,7 @@ def main():
 	if 'http_filter_type' in os.environ:
 		http_filter['content_type'] = list(set(filter(None, os.environ["http_filter_type"].replace(" ","").split(","))))
 	
-	sniff_obj = tcp_http_sniff(
-		interface, display_filter, syslog_ip, syslog_port, custom_tag, return_deep_info, http_filter, cache_size, session_size, bpf_filter, timeout, debug)
+	sniff_obj = tcp_http_sniff(interface, display_filter, syslog_ip, syslog_port, custom_tag, return_deep_info, http_filter, cache_size, session_size, bpf_filter, timeout, debug)
 	sniff_obj.run()
 
 if __name__ == '__main__':
@@ -86,7 +85,7 @@ if __name__ == '__main__':
 		opts,args = getopt.getopt(sys.argv[1:],'i: s: p: d: t: r: c: T: S:')
 	except:
 		Usage()
-	if len(opts) < 4:
+	if len(opts) < 3:
 		Usage()
 
 	for o, a in opts:
@@ -112,7 +111,7 @@ if __name__ == '__main__':
 			session_size = int(a)
 		if o == '-T':
 			timeout = int(a)
-	if interface and syslog_ip and syslog_port and cache_size and session_size:
+	if interface and syslog_ip and syslog_port :
 		try:
 			main()
 		except KeyboardInterrupt:
