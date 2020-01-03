@@ -1,13 +1,13 @@
 ## 项目简述
 
-基于pyshark、tshark、pcap、pf_ring实现实时流量分析，使用syslog方式输出TCP及HTTP两种资产数据。
+基于pyshark、tshark、pcap、pf_ring实现实时流量分析，使用http、syslog方式输出资产数据。
 
 ## main.py参数说明
 
 ```
 -i  流量采集网卡（例如：eth0、ens192），需必填
--s  syslog服务器地址，需必填
--p  syslog服务器监听端口，需必填
+-s  数据接收服务器地址，需必填
+-p  数据接收服务器监听端口，需必填
 -t  标识流量来源，Default:localhost
 -r  深度资产信息采集开关，off|on，Default:on
 -d  Debug调试信息开关，off|on，Default:off
@@ -45,10 +45,10 @@ services:
     environment:
       # 量采集网卡（例如：eth0、ens192），需必填
       - interface=<ens192>
-      # syslog服务器地址，需必填
-      - ip=SyslogIP
-      # syslog服务器监听端口，需必填
-      - port=SyslogPort
+      # 数据接收服务器地址，需必填
+      - ip=ServerIP
+      # 数据接收服务器监听端口，需必填
+      - port=ServerPort
       # 标识流量来源，Default:localhost
       - tag=localhost
       # 深度资产信息采集开关，off|on，Default:on
@@ -70,7 +70,7 @@ services:
 ## CMD运行
 
 ```
-docker run --restart=unless-stopped -d -e tag="localhost" -e interface="ens192" -e ip="SyslogIP" -e port="SyslogPort" -e switch="on" -e debug="off" -e cache="1024" -e timeout="3600" --net=host -it doslab/passets-sensor:<tag> /bin/bash
+docker run --restart=unless-stopped -d -e tag="localhost" -e interface="ens192" -e ip="ServerIP" -e port="ServerPort" -e switch="on" -e debug="off" -e cache="1024" -e timeout="3600" --net=host -it doslab/passets-sensor:<tag> /bin/bash
 ```
 
 ## 输出数据格式

@@ -4,6 +4,7 @@ import logging
 import logging.handlers 
 import os
 import sys
+import requests
 
 # TASK_LOCK_FILE临时文件，判断程序是否正在运行
 TASK_LOCK_FILE = sys.path[0]+'/passets_sensor.lock'
@@ -52,14 +53,14 @@ def check_lock():
 		print_log(e)
 		sys.exit()
 
-# 日志记录 
-class _logging:
-	def __init__(self,syslog_ip,syslog_port):
+# Syslog Send
+class _syslog_msg_send:
+	def __init__(self, server_ip, server_port):
 
-		self.syslog_ip = syslog_ip
-		self.syslog_port = syslog_port
+		self.server_ip = server_ip
+		self.server_port = server_port
 		self.logger = logging.getLogger()
-		hdlr = logging.handlers.SysLogHandler((self.syslog_ip, self.syslog_port), logging.handlers.SysLogHandler.LOG_AUTH)
+		hdlr = logging.handlers.SysLogHandler((self.server_ip, self.server_port), logging.handlers.SysLogHandler.LOG_AUTH)
 		# hdlr = logging.handlers.RotatingFileHandler(logfile, maxBytes=5242880, backupCount=5)
 		formatter = logging.Formatter('%(asctime)s %(levelname)s: %(message)s')
 		hdlr.setFormatter(formatter)
@@ -80,3 +81,14 @@ class _logging:
 
 	def critical(self, msg):
 		self.logger.critical(msg)
+
+# HTTP Send
+class _http_msg_send:
+	def __init__(self,http_url):
+		self.http_url = http_url
+	def info(self,msg):
+		self.req = requests.post(self.http_url, data=msg, verify=False, timeout=3)
+		# print(self.http_url)
+		# print(self.req.status_code)
+
+

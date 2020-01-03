@@ -1,14 +1,18 @@
 #-*- coding:utf-8 -*-
 
 from lib._http_tcp_shark import tcp_http_sniff
-from lib._logging import check_lock
+from lib._util import check_lock
+from lib._util import _syslog_msg_send, _http_msg_send
 import getopt
 import sys
 import os
+import threading
+import queue
+import signal
 
-# syslog服务器地址和端口信息
-syslog_ip = '127.0.0.1'
-syslog_port = 514
+# 数据接收服务器地址和端口信息
+server_ip = '127.0.0.1'
+server_port = 514
 # 监听网卡
 interface = 'eth0'
 # 主机标识
@@ -16,17 +20,24 @@ custom_tag = '127.0.0.1'
 # bpf_filter
 bpf_filter = 'tcp'
 # display_filter
-display_filter = "tcp.flags.reset == 0"
+# display_filter = 'tcp'
 # debug模式，数据console输出
 debug = False
 # 开启深度数据分析
 return_deep_info = True
-# 缓存数量
+# 重复缓存数量
 cache_size = 1024
-# 流量回话数量
+# 流量会话数量
 session_size = 1024
 # 定时清空内存
 timeout = 3600
+# 发送数据线程数量
+msg_send_thread_num = 10
+# 发送数据队列最大值
+max_queue_size = 500
+# 资产数据发送模式，仅支持HTTP，SYSLOG两种
+msg_send_mode = 'HTTP'
+
 # HTTP数据过滤
 http_filter = {
 	"response_code": ['304', '400', '404'],
@@ -53,8 +64,8 @@ def Usage():
  python3 main.py [options] ...
 
  -i <interface>     Name or idx of interface(def: None)		 
- -s <syslog_ip>     Syslog server ip(def: None)
- -p <syslog_port>   Syslog server port(def: None)
+ -s <server_ip>     server ip(def: None)
+ -p <server_port>   server port(def: None)
  -t <tag>           Source identification(def: localhost)
  -c <cache_size>    Cache size(def: 1024)
  -S <session_size>  Session size(def: 1024)
@@ -65,15 +76,33 @@ def Usage():
 	''')
 	sys.exit()
 
-def main():
+def main(work_queue):
 	# 接受通过环境变量传入的过滤设置
 	if 'http_filter_code' in os.environ:
 		http_filter['response_code'] = list(set(filter(None, os.environ["http_filter_code"].replace(" ","").split(","))))
 	if 'http_filter_type' in os.environ:
 		http_filter['content_type'] = list(set(filter(None, os.environ["http_filter_type"].replace(" ","").split(","))))
 	
-	sniff_obj = tcp_http_sniff(interface, display_filter, syslog_ip, syslog_port, custom_tag, return_deep_info, http_filter, cache_size, session_size, bpf_filter, timeout, debug)
+	sniff_obj = tcp_http_sniff(work_queue, interface, custom_tag, return_deep_info, http_filter, cache_size, session_size, bpf_filter, timeout, debug)
 	sniff_obj.run()
+
+class thread_msg_send(threading.Thread):
+	def __init__(self, work_queue, msg_obj):
+
+		threading.Thread.__init__(self)
+		self.work_queue = work_queue
+		self.msg_obj = msg_obj
+
+	def run(self):
+		while True:
+			try:
+				if not self.work_queue.empty() and self.msg_obj:
+					result = self.work_queue.get()
+					self.msg_obj.info(result)
+				else:
+					time.sleep(1)
+			except:
+				pass
 
 if __name__ == '__main__':
 
@@ -92,11 +121,11 @@ if __name__ == '__main__':
 		if o == "-i":
 			interface = str(a)
 		if o == '-s':
-			syslog_ip = str(a)
+			server_ip = str(a)
 		if o == '-t':
 			custom_tag = str(a)
 		if o == '-p': 
-			syslog_port = int(a)
+			server_port = int(a)
 		if o == '-d':
 			debug_str = str(a)
 			if debug_str == 'on':
@@ -113,10 +142,26 @@ if __name__ == '__main__':
 				session_size = 1024
 		if o == '-T':
 			timeout = int(a)
-	if interface and syslog_ip and syslog_port :
+
+	if interface and server_ip and server_port:
+		bpf_filter += ' and not (host {} and port {})'.format(server_ip,server_port)
+
 		try:
-			main()
+			work_queue = queue.LifoQueue(max_queue_size)
+			if msg_send_mode == "HTTP":
+				http_url = "http://{}:{}/".format(server_ip,server_port)
+				msg_obj = _http_msg_send(http_url)
+			elif msg_send_mode == "SYSLOG":
+				msg_obj = _syslog_msg_send(server_ip,server_port)
+			else:
+				msg_obj = ''
+			
+			for i in range(msg_send_thread_num):
+				msg_thread_obj = thread_msg_send(work_queue, msg_obj)
+				msg_thread_obj.start()
+			main(work_queue)
 		except KeyboardInterrupt:
 			print('\nExit.')
+			os.kill(os.getpid(),signal.SIGKILL)
 	else:
 		Usage()

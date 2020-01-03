@@ -2,23 +2,19 @@
 
 import pyshark
 import json
-import base64
 import time
 import re
 import traceback
 import concurrent.futures
-from ._logging import _logging
 from cacheout import Cache, LRUCache
 
 class tcp_http_sniff():
 
-	def __init__(self, interface, display_filter, syslog_ip, syslog_port, custom_tag, return_deep_info, http_filter_json, cache_size, session_size, bpf_filter, timeout, debug):
+	def __init__(self, work_queue, interface, custom_tag, return_deep_info, http_filter_json, cache_size, session_size, bpf_filter, timeout, debug):
 		"""
 		构造函数
+		:param work_queue: 捕获资产数据消息发送队列
 		:param interface: 捕获流量的网卡名
-		:param display_filter: 数据包显示过滤器
-		:param syslog_ip: 接收数据用 Syslog 服务器地址
-		:param syslog_port: 接收数据用 Syslog 服务器端口
 		:param custom_tag: 数据标签，用于区分不同的采集引擎
 		:param return_deep_info: 是否处理更多信息，包括原始请求、响应头和正文
 		:param http_filter_json: HTTP过滤器配置，支持按状态和内容类型过滤
@@ -28,6 +24,7 @@ class tcp_http_sniff():
 		:param timeout: 采集程序的运行超时时间，默认为启动后1小时自动退出
 		:param debug: 调试开关
 		"""
+		self.work_queue = work_queue
 		self.debug = debug
 		self.timeout = timeout
 		self.bpf_filter = bpf_filter
@@ -36,12 +33,8 @@ class tcp_http_sniff():
 		self.http_filter_json = http_filter_json
 		self.return_deep_info = return_deep_info
 		self.custom_tag = custom_tag
-		self.syslog_ip = syslog_ip
-		self.syslog_port = syslog_port
-		self.log_obj = _logging(self.syslog_ip,self.syslog_port)
 		self.interface = interface
-		self.display_filter = display_filter
-		self.pktcap = pyshark.LiveCapture(interface=self.interface, bpf_filter=self.bpf_filter, use_json=False, display_filter=self.display_filter, debug=self.debug)
+		self.pktcap = pyshark.LiveCapture(interface=self.interface, bpf_filter=self.bpf_filter, use_json=False, debug=self.debug)
 		self.http_stream_cache = Cache(maxsize=self.session_size, ttl=16, timer=time.time, default=None)
 		self.tcp_stream_cache = Cache(maxsize=self.session_size, ttl=16, timer=time.time, default=None)
 		if self.cache_size:
@@ -92,8 +85,7 @@ class tcp_http_sniff():
 				result = json.dumps(pkt_json)
 				if self.debug:
 					print(result)
-				self.log_obj.info(result)
-
+				self.work_queue.put(result)
 		except:
 			traceback.print_exc()
 	
@@ -184,9 +176,17 @@ class tcp_http_sniff():
 						if split_pos <= 0 or split_pos > 2048:
 							split_pos = 2048
 						pkt_json["header"] = str(payload[:split_pos], 'utf-8', 'ignore')
-				
+						data = str(payload[split_pos+4:], 'utf-8', 'ignore')
 				if 'file_data' in http_dict and pkt.http.file_data.raw_value and pkt_json['type'] != 'application/octet-stream':
 					data = bytes.fromhex(pkt.http.file_data.raw_value)
+				elif 'data' in http_dict:
+					data = bytes.fromhex(pkt.http.data)
+				elif 'segment_data' in dir(pkt.tcp):
+					data = bytes.fromhex(pkt.tcp.segment_data.replace(":",""))
+				else:
+					data = ''
+
+				if data:
 					# 检测页面 Meta 中的编码信息
 					data_head = data[:500] if data.find(b'</head>', 0, 1024) == -1 else data[:data.find(b'</head>')]
 					match = self.encode_regex.search(data_head)

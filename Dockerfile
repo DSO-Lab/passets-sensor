@@ -22,6 +22,7 @@ RUN apt-get -y update && \
     apt-get -y install python3 python3-pip python3-lxml && \
     pip3 install cacheout && \
     pip3 install pyshark && \
+    pip3 install requests && \
     chmod 750 /usr/bin/dumpcap && \
     chgrp root /usr/bin/dumpcap && \
     apt-get clean all && \

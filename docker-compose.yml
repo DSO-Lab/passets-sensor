@@ -8,8 +8,8 @@ services:
     container_name: passets-sensor
     environment:
       - interface=ens192
-      - ip=SyslogIP
-      - port=SyslogPort
+      - ip=ServerIP
+      - port=ServerPort
       - tag=localhost
       - switch=on
       - cache=1024
