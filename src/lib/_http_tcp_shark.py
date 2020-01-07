@@ -35,8 +35,9 @@ class tcp_http_sniff():
 		self.custom_tag = custom_tag
 		self.interface = interface
 		self.pktcap = pyshark.LiveCapture(interface=self.interface, bpf_filter=self.bpf_filter, use_json=False, debug=self.debug)
-		self.http_stream_cache = Cache(maxsize=self.session_size, ttl=16, timer=time.time, default=None)
-		self.tcp_stream_cache = Cache(maxsize=self.session_size, ttl=16, timer=time.time, default=None)
+		if self.session_size:
+			self.http_stream_cache = Cache(maxsize=self.session_size, ttl=16, timer=time.time, default=None)
+			self.tcp_stream_cache = Cache(maxsize=self.session_size, ttl=16, timer=time.time, default=None)
 		if self.cache_size:
 			self.http_cache = LRUCache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
 			self.tcp_cache = LRUCache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
@@ -97,7 +98,7 @@ class tcp_http_sniff():
 		"""
 		http_dict = dir(pkt.http)
 
-		if 'request' in http_dict:
+		if 'request' in http_dict and self.session_size:
 			req = {
 				'url': pkt.http.request_full_uri if 'request_full_uri' in http_dict else pkt.http.request_uri,
 				'method': pkt.http.request_method if 'request_method' in http_dict else ''
@@ -110,11 +111,12 @@ class tcp_http_sniff():
 			src_addr = pkt.ip.src
 			src_port = pkt[pkt.transport_layer].srcport
 			
-			cache_req = self.http_stream_cache.get(pkt.tcp.stream)
-			if cache_req:
-				pkt_json['url'] = cache_req['url']
-				pkt_json['method'] = cache_req['method']
-				self.http_stream_cache.delete(pkt.tcp.stream)
+			if self.session_size:
+				cache_req = self.http_stream_cache.get(pkt.tcp.stream)
+				if cache_req:
+					pkt_json['url'] = cache_req['url']
+					pkt_json['method'] = cache_req['method']
+					self.http_stream_cache.delete(pkt.tcp.stream)
 			
 			if 'url' not in pkt_json:
 				if 'response_for_uri' in http_dict:
@@ -216,7 +218,7 @@ class tcp_http_sniff():
 		pkt_json["tag"] = self.custom_tag
 
 		# SYN+ACK
-		if pkt.tcp.flags == '0x00000012' : 
+		if pkt.tcp.flags == '0x00000012': 
 			server_ip = pkt.ip.src
 			server_port = pkt[pkt.transport_layer].srcport
 			tcp_info = '%s:%s' % (server_ip, server_port)
@@ -227,7 +229,7 @@ class tcp_http_sniff():
 					return None
 				self.tcp_cache.set(tcp_info, True)
 
-			if self.return_deep_info:
+			if self.return_deep_info and self.session_size:
 				self.tcp_stream_cache.set(tcp_stream, tcp_info)
 			else:
 				pkt_json["ip"] = server_ip
@@ -236,7 +238,7 @@ class tcp_http_sniff():
 				return pkt_json
 		
 		# -r on开启深度数据分析，采集server第一个响应数据包
-		if self.return_deep_info and pkt.tcp.seq == "1" and "payload" in dir(pkt.tcp) :
+		if self.return_deep_info and pkt.tcp.seq == "1" and "payload" in dir(pkt.tcp) and self.session_size:
 			tcp_info = self.tcp_stream_cache.get(tcp_stream)
 			if tcp_info:
 				# 防止误处理客户端发第一个包的情况

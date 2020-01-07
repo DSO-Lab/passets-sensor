@@ -138,8 +138,8 @@ if __name__ == '__main__':
 			cache_size = int(a)
 		if o == '-S':
 			session_size = int(a)
-			if session_size == 0:
-				session_size = 1024
+			# if session_size == 0:
+			# 	session_size = 1024
 		if o == '-T':
 			timeout = int(a)
 
