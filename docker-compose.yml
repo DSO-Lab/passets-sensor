@@ -13,6 +13,7 @@ services:
       - tag=localhost
       - switch=on
       - cache=1024
+      - session=1024
       - timeout=3600
       - debug=off
       - http_filter_code=400,404,304
