@@ -27,6 +27,7 @@ class tcp_http_pcap():
 		:param timeout: 采集程序的运行超时时间，默认为启动后1小时自动退出
 		:param debug: 调试开关
 		"""
+		self.total_msg_num = 0
 		self.work_queue = work_queue
 		self.debug = debug
 		self.timeout = timeout
@@ -49,13 +50,15 @@ class tcp_http_pcap():
 		入口函数
 		"""
 		for ts, pkt in self.sniffer:
+			# self.total_msg_num += 1
+			# if self.total_msg_num%1000 > 0 and self.total_msg_num%1000 < 10:
+				# print("Asset analysis rate: %s"%(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())+" - "+str(self.total_msg_num)))
 			packet = self.pkt_decode(pkt)
 			if not packet:
 				continue
 
 			cache_key = '{}:{}'.format(packet.src, packet.sport)
 			# SYN & ACK
-
 			if packet.flags == 0x12:
 				if self.cache_size and self.tcp_cache.get(cache_key):
 					continue
@@ -173,10 +176,11 @@ class tcp_http_pcap():
 			
 			return decode_data
 
-		result = chardet.detect(data)
-		if result and 'encoding' in result and result['encoding']:
-			if result['encoding'] != 'utf-8':
-				return str(data, result['encoding'], 'ignore')
+		# 非常消耗性能
+		# result = chardet.detect(data)
+		# if result and 'encoding' in result and result['encoding']:
+		# 	if result['encoding'] != 'utf-8':
+		# 		return str(data, result['encoding'], 'ignore')
 
 		return decode_data
 

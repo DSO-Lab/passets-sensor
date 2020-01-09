@@ -31,12 +31,12 @@ return_deep_info = True
 cache_size = 1024
 # 流量会话数量
 session_size = 1024
-# 定时清空内存
+# tshark定期清空内存（单位秒/默认一小时），pcap接收数据包的超时时间（单位毫秒/默认3.6秒）
 timeout = 3600
 # 发送数据线程数量
 msg_send_thread_num = 10
 # 发送数据队列最大值
-max_queue_size = 500
+max_queue_size = 1000
 # 资产数据发送模式，仅支持HTTP，SYSLOG两种
 msg_send_mode = 'HTTP'
 # 流量采集引擎，仅支持TSHARK，PCAP两种
@@ -142,7 +142,8 @@ if __name__ == '__main__':
 			cache_size = int(a)
 		if o == '-S':
 			session_size = int(a)
-
+			if session_size == 0:
+				session_size = 1024
 		if o == '-T':
 			timeout = int(a)
 
@@ -174,7 +175,6 @@ if __name__ == '__main__':
 				tshark_analysis(work_queue)
 			else:
 				pass
-
 		except KeyboardInterrupt:
 			print('\nExit.')
 			os.kill(os.getpid(),signal.SIGKILL)

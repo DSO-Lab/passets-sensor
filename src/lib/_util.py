@@ -90,5 +90,3 @@ class _http_msg_send:
 		self.req = requests.post(self.http_url, data=msg, verify=False, timeout=3)
 		# print(self.http_url)
 		# print(self.req.status_code)
-
-
