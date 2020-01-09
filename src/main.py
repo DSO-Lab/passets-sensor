@@ -1,6 +1,7 @@
 #-*- coding:utf-8 -*-
 
-from lib._http_tcp_shark import tcp_http_sniff
+from lib._http_tcp_shark import tcp_http_shark
+from lib._http_tcp_pcap import tcp_http_pcap
 from lib._util import check_lock
 from lib._util import _syslog_msg_send, _http_msg_send
 import getopt
@@ -9,6 +10,7 @@ import os
 import threading
 import queue
 import signal
+import traceback
 
 # 数据接收服务器地址和端口信息
 server_ip = '127.0.0.1'
@@ -37,6 +39,8 @@ msg_send_thread_num = 10
 max_queue_size = 500
 # 资产数据发送模式，仅支持HTTP，SYSLOG两种
 msg_send_mode = 'HTTP'
+# 流量采集引擎，仅支持TSHARK，PCAP两种
+engine = "PCAP"
 
 # HTTP数据过滤
 http_filter = {
@@ -53,6 +57,7 @@ http_filter = {
 		'text/css'
 	]
 }
+
 
 def Usage():
 	print('''
@@ -76,15 +81,14 @@ def Usage():
 	''')
 	sys.exit()
 
-def main(work_queue):
-	# 接受通过环境变量传入的过滤设置
-	if 'http_filter_code' in os.environ:
-		http_filter['response_code'] = list(set(filter(None, os.environ["http_filter_code"].replace(" ","").split(","))))
-	if 'http_filter_type' in os.environ:
-		http_filter['content_type'] = list(set(filter(None, os.environ["http_filter_type"].replace(" ","").split(","))))
-	
-	sniff_obj = tcp_http_sniff(work_queue, interface, custom_tag, return_deep_info, http_filter, cache_size, session_size, bpf_filter, timeout, debug)
-	sniff_obj.run()
+def tshark_analysis(work_queue):
+
+	shark_obj = tcp_http_shark(work_queue, interface, custom_tag, return_deep_info, http_filter, cache_size, session_size, bpf_filter, timeout, debug)
+	shark_obj.run()
+
+def pcap_analysis(work_queue):
+	pcap_obj = tcp_http_pcap(work_queue, interface, custom_tag, return_deep_info, http_filter, cache_size, session_size, bpf_filter, timeout, debug)
+	pcap_obj.run()
 
 class thread_msg_send(threading.Thread):
 	def __init__(self, work_queue, msg_obj):
@@ -138,12 +142,16 @@ if __name__ == '__main__':
 			cache_size = int(a)
 		if o == '-S':
 			session_size = int(a)
-			# if session_size == 0:
-			# 	session_size = 1024
+
 		if o == '-T':
 			timeout = int(a)
 
 	if interface and server_ip and server_port:
+		# 接受通过环境变量传入的过滤设置
+		if 'http_filter_code' in os.environ:
+			http_filter['response_code'] = list(set(filter(None, os.environ["http_filter_code"].replace(" ","").split(","))))
+		if 'http_filter_type' in os.environ:
+			http_filter['content_type'] = list(set(filter(None, os.environ["http_filter_type"].replace(" ","").split(","))))
 		bpf_filter += ' and not (host {} and port {})'.format(server_ip,server_port)
 
 		try:
@@ -159,9 +167,18 @@ if __name__ == '__main__':
 			for i in range(msg_send_thread_num):
 				msg_thread_obj = thread_msg_send(work_queue, msg_obj)
 				msg_thread_obj.start()
-			main(work_queue)
+
+			if engine == 'PCAP':
+				pcap_analysis(work_queue)
+			elif engine == 'TSHARK':
+				tshark_analysis(work_queue)
+			else:
+				pass
+
 		except KeyboardInterrupt:
 			print('\nExit.')
 			os.kill(os.getpid(),signal.SIGKILL)
+		except :
+			traceback.print_exc()
 	else:
 		Usage()

@@ -85,6 +85,8 @@ HTTP OUTPUT JSON
   "url": "http://www.dsolab.org/",    
   # 协议（HTTP/HTTPS）
   "pro": "HTTP",
+  # 请求方式
+  "method": "GET"
   # 来源标识
   "tag": "dsolab",      
   # 服务IP 

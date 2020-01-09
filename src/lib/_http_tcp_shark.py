@@ -8,7 +8,7 @@ import traceback
 import concurrent.futures
 from cacheout import Cache, LRUCache
 
-class tcp_http_sniff():
+class tcp_http_shark():
 
 	def __init__(self, work_queue, interface, custom_tag, return_deep_info, http_filter_json, cache_size, session_size, bpf_filter, timeout, debug):
 		"""
