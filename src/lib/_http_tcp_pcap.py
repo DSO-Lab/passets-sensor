@@ -52,11 +52,9 @@ class tcp_http_pcap():
 		入口函数
 		"""
 		for ts, pkt in self.sniffer:
-			print(1111)
-			self.total_msg_num += 1
-			if self.total_msg_num%1000 > 0 and self.total_msg_num%1000 < 10:
-				print("Asset analysis rate: %s"%(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())+" - "+str(self.total_msg_num)))
-			print(2222)
+			# self.total_msg_num += 1
+			# if self.total_msg_num%1000 > 0 and self.total_msg_num%1000 < 10:
+			# 	print("Asset analysis rate: %s"%(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())+" - "+str(self.total_msg_num)))
 			packet = self.pkt_decode(pkt)
 			if not packet:
 				continue
@@ -219,6 +217,5 @@ class tcp_http_pcap():
 	def send_msg(self, data):
 		result = json.dumps(data)
 		if self.debug:
-			print(11111)
 			print(result)
 		self.work_queue.append(result)
