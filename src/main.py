@@ -36,9 +36,9 @@ session_size = 1024
 # tshark定期清空内存（单位秒/默认一小时），pcap接收数据包的超时时间（单位毫秒/默认3.6秒）
 timeout = 3600
 # 发送数据线程数量
-msg_send_thread_num = 100
+msg_send_thread_num = 10
 # 发送数据队列最大值
-max_queue_size = 1000
+max_queue_size = 500
 # 资产数据发送模式，仅支持HTTP，SYSLOG两种
 msg_send_mode = 'HTTP'
 # 流量采集引擎，仅支持TSHARK，PCAP两种
@@ -102,7 +102,7 @@ class thread_msg_send(threading.Thread):
 		while True:
 			try:
 				if self.work_queue and self.msg_obj:
-					result = self.work_queue.pop()
+					result = self.work_queue.popleft()
 					self.msg_obj.info(result)
 				else:
 					time.sleep(1)

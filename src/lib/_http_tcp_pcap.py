@@ -6,8 +6,6 @@ import time
 import json
 import sys
 import re
-import traceback
-import concurrent.futures
 from cacheout import Cache, LRUCache
 
 class tcp_http_pcap():
@@ -53,9 +51,9 @@ class tcp_http_pcap():
 		"""
 		for ts, pkt in self.sniffer:
 
-			# self.total_msg_num += 1
-			# if self.total_msg_num%1000 > 0 and self.total_msg_num%1000 < 10:
-			# 	print("Asset analysis rate: %s"%(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())+" - "+str(self.total_msg_num)))
+			self.total_msg_num += 1
+			if self.total_msg_num%1000 > 0 and self.total_msg_num%1000 < 10:
+				print("Asset analysis rate: %s"%(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())+" - "+str(self.total_msg_num)))
 
 			packet = self.pkt_decode(pkt)
 			if not packet:
