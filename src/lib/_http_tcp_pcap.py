@@ -4,7 +4,6 @@ import pcap
 import dpkt
 import time
 import json
-import chardet
 import sys
 import re
 import traceback
@@ -40,19 +39,24 @@ class tcp_http_pcap():
 		self.interface = interface
 		self.sniffer = pcap.pcap(self.interface, snaplen=65535, promisc=True, timeout_ms=self.timeout, immediate=False)
 		self.sniffer.setfilter(self.bpf_filter)
-		# if self.session_size:
 		self.tcp_stream_cache = Cache(maxsize=self.session_size, ttl=30, timer=time.time, default=None)
 		if self.cache_size:
 			self.tcp_cache = LRUCache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
+		# http数据分析正则
+		self.decode_request_regex = re.compile(r'^([A-Z]+) +([^ ]+) +HTTP/\d+\.\d+?\r\n(.*?)\r\n\r\n(.*?)', re.S)
+		self.decode_response_regex = re.compile(r'^HTTP/(\d+\.\d+) (\d+)[^\r\n]*\r\n(.*?)$', re.S)
+		self.decode_body_regex = re.compile(rb'<meta[^>]+?charset=[\'"]?([a-z\d\-]+)[\'"]?', re.I)
 
 	def run(self):
 		"""
 		入口函数
 		"""
 		for ts, pkt in self.sniffer:
-			# self.total_msg_num += 1
-			# if self.total_msg_num%1000 > 0 and self.total_msg_num%1000 < 10:
-				# print("Asset analysis rate: %s"%(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())+" - "+str(self.total_msg_num)))
+			print(1111)
+			self.total_msg_num += 1
+			if self.total_msg_num%1000 > 0 and self.total_msg_num%1000 < 10:
+				print("Asset analysis rate: %s"%(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())+" - "+str(self.total_msg_num)))
+			print(2222)
 			packet = self.pkt_decode(pkt)
 			if not packet:
 				continue
@@ -77,14 +81,24 @@ class tcp_http_pcap():
 					if send_data.find(b' HTTP/') != -1:
 						request_dict = self.decode_request(send_data)
 						response_dict = self.decode_response(packet.data)
+						response_code = response_dict['status']
+						content_type = response_dict['type']
+
+						# 根据响应状态码和页面类型进行过滤
+						if self.http_filter_json:
+							filter_code = self.http_filter('response_code', response_code) if response_code else False
+							filter_type = self.http_filter('content_type', content_type) if content_type else False
+							if filter_code or filter_type:
+								continue
+
 						data = {
 							'pro': 'HTTP',
 							'tag': self.custom_tag,
 							'ip': packet.src,
 							'port': packet.sport,
 							'method': request_dict['method'],
-							'code': response_dict['status'],
-							'type': response_dict['type'],
+							'code': response_code,
+							'type': content_type,
 							'server': response_dict['server'],
 							'header': response_dict['headers'],
 							'url': request_dict['uri'],
@@ -108,6 +122,19 @@ class tcp_http_pcap():
 
 		self.sniffer.close()
 
+	def http_filter(self, key, value):
+		"""
+		检查字符串中是否包含特定的规则
+		:param key: 规则键名，response_code（状态码）或 content_type（内容类型）
+		:param value: 要检查的字符串
+		:return: True - 包含， False - 不包含
+		"""
+		if key in self.http_filter_json:
+			for rule in self.http_filter_json[key]:
+				if rule in value:
+					return True
+		return False
+
 	def pkt_decode(self, pkt):
 		packet = dpkt.ethernet.Ethernet(pkt)
 		if isinstance(packet.data, dpkt.ip.IP) and isinstance(packet.data.data, dpkt.tcp.TCP):
@@ -125,8 +152,7 @@ class tcp_http_pcap():
 
 	def decode_request(self, data):
 		data_str = str(data, 'utf-8', 'ignore')
-
-		m = re.match(r'^([A-Z]+) +([^ ]+) +HTTP/\d+\.\d+?\r\n(.*?)\r\n\r\n(.*?)', data_str, re.S)
+		m = self.decode_request_regex.match(data_str)
 		if m:
 			headers = m.group(3).strip()
 			header_dict = self.parse_headers(headers)
@@ -138,14 +164,14 @@ class tcp_http_pcap():
 				'headers': headers,
 				'body': m.group(4)
 			}
-		
+
 		return None
 
 	def decode_response(self, data):
 		pos = data.find(b'\r\n\r\n')
-		header_str = str(data[:pos] if pos > 0 else data, 'utf-8', 'ignore')
 		body = data[pos+4:] if pos > 0 else b''
-		m = re.match(r'^HTTP/(\d+\.\d+) (\d+)[^\r\n]*\r\n(.*?)$', header_str, re.S)
+		header_str = str(data[:pos] if pos > 0 else data, 'utf-8', 'ignore')
+		m = self.decode_response_regex.match(header_str)
 		if m:
 			headers = m.group(3).strip()
 			headers_dict = self.parse_headers(headers)
@@ -166,23 +192,20 @@ class tcp_http_pcap():
 		content_type = content_type.lower() if content_type else ''
 		if 'charset=gbk' in content_type or 'charset=gb2312' in content_type:
 			return str(data, 'gbk', 'ignore')
-		
-		decode_data = str(data, 'utf-8', 'ignore')
-		m = re.match(r'<meta[^>]+?charset=[\'"]?([a-z\d\-]+)[\'"]?', decode_data, re.I)
+		m = self.decode_body_regex.match(data)
 		if m:
 			charset = m.group(1).lower()
 			if chardet != 'utf-8':
 				return str(data, charset, 'ignore')
-			
-			return decode_data
+		
+		return str(data, 'utf-8', 'ignore')
 
-		# 非常消耗性能
+		# 自动尝试解码，非常消耗性能
+		# import chardet
 		# result = chardet.detect(data)
 		# if result and 'encoding' in result and result['encoding']:
 		# 	if result['encoding'] != 'utf-8':
 		# 		return str(data, result['encoding'], 'ignore')
-
-		return decode_data
 
 	def parse_headers(self, data):
 		headers = {}
@@ -196,5 +219,6 @@ class tcp_http_pcap():
 	def send_msg(self, data):
 		result = json.dumps(data)
 		if self.debug:
+			print(11111)
 			print(result)
-		self.work_queue.put(result)
+		self.work_queue.append(result)

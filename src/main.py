@@ -8,7 +8,8 @@ import getopt
 import sys
 import os
 import threading
-import queue
+# import queue
+import collections
 import signal
 import traceback
 
@@ -34,7 +35,7 @@ session_size = 1024
 # tshark定期清空内存（单位秒/默认一小时），pcap接收数据包的超时时间（单位毫秒/默认3.6秒）
 timeout = 3600
 # 发送数据线程数量
-msg_send_thread_num = 10
+msg_send_thread_num = 100
 # 发送数据队列最大值
 max_queue_size = 1000
 # 资产数据发送模式，仅支持HTTP，SYSLOG两种
@@ -57,7 +58,6 @@ http_filter = {
 		'text/css'
 	]
 }
-
 
 def Usage():
 	print('''
@@ -100,8 +100,8 @@ class thread_msg_send(threading.Thread):
 	def run(self):
 		while True:
 			try:
-				if not self.work_queue.empty() and self.msg_obj:
-					result = self.work_queue.get()
+				if self.work_queue and self.msg_obj:
+					result = self.work_queue.popleft()
 					self.msg_obj.info(result)
 				else:
 					time.sleep(1)
@@ -156,7 +156,9 @@ if __name__ == '__main__':
 		bpf_filter += ' and not (host {} and port {})'.format(server_ip,server_port)
 
 		try:
-			work_queue = queue.LifoQueue(max_queue_size)
+			# work_queue = queue.LifoQueue(max_queue_size)
+			work_queue = collections.deque(maxlen=max_queue_size)
+
 			if msg_send_mode == "HTTP":
 				http_url = "http://{}:{}/".format(server_ip,server_port)
 				msg_obj = _http_msg_send(http_url)
