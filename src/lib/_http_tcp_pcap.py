@@ -13,6 +13,7 @@ class tcp_http_pcap():
 	def __init__(self, max_queue_size, work_queue, interface, custom_tag, return_deep_info, http_filter_json, cache_size, session_size, bpf_filter, timeout, debug):
 		"""
 		构造函数
+		:param max_queue_size: 资产队列最大长度
 		:param work_queue: 捕获资产数据消息发送队列
 		:param interface: 捕获流量的网卡名
 		:param custom_tag: 数据标签，用于区分不同的采集引擎
@@ -53,7 +54,7 @@ class tcp_http_pcap():
 		for ts, pkt in self.sniffer:
 
 			self.total_msg_num += 1
-			if self.total_msg_num%1000 > 0 and self.total_msg_num%1000 < 5:
+			if self.total_msg_num%1000 > 7 and self.total_msg_num%1000 < 9:
 				print("Asset analysis rate: %s"%(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())+" - "+str(self.total_msg_num)))
 
 			packet = self.pkt_decode(pkt)
@@ -219,6 +220,6 @@ class tcp_http_pcap():
 		result = json.dumps(data)
 		if self.debug:
 			print(result)
-		if len(self.work_queue) >= self.max_queue_size*0.95:
+		if len(self.work_queue) >= self.max_queue_size*0.9:
 			self.work_queue.clear()
 		self.work_queue.append(result)
