@@ -41,7 +41,7 @@ class tcp_http_pcap():
 		self.sniffer.setfilter(self.bpf_filter)
 		self.tcp_stream_cache = Cache(maxsize=self.session_size, ttl=30, timer=time.time, default=None)
 		if self.cache_size:
-			self.tcp_cache = LRUCache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
+			self.tcp_cache = Cache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
 		# http数据分析正则
 		self.decode_request_regex = re.compile(r'^([A-Z]+) +([^ ]+) +HTTP/\d+\.\d+?\r\n(.*?)\r\n\r\n(.*?)', re.S)
 		self.decode_response_regex = re.compile(r'^HTTP/(\d+\.\d+) (\d+)[^\r\n]*\r\n(.*?)$', re.S)
@@ -52,9 +52,11 @@ class tcp_http_pcap():
 		入口函数
 		"""
 		for ts, pkt in self.sniffer:
+
 			# self.total_msg_num += 1
 			# if self.total_msg_num%1000 > 0 and self.total_msg_num%1000 < 10:
 			# 	print("Asset analysis rate: %s"%(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())+" - "+str(self.total_msg_num)))
+
 			packet = self.pkt_decode(pkt)
 			if not packet:
 				continue

@@ -12,6 +12,7 @@ import threading
 import collections
 import signal
 import traceback
+import time
 
 # 数据接收服务器地址和端口信息
 server_ip = '127.0.0.1'
@@ -101,7 +102,7 @@ class thread_msg_send(threading.Thread):
 		while True:
 			try:
 				if self.work_queue and self.msg_obj:
-					result = self.work_queue.popleft()
+					result = self.work_queue.pop()
 					self.msg_obj.info(result)
 				else:
 					time.sleep(1)
@@ -158,7 +159,6 @@ if __name__ == '__main__':
 		try:
 			# work_queue = queue.LifoQueue(max_queue_size)
 			work_queue = collections.deque(maxlen=max_queue_size)
-
 			if msg_send_mode == "HTTP":
 				http_url = "http://{}:{}/".format(server_ip,server_port)
 				msg_obj = _http_msg_send(http_url)
@@ -177,6 +177,7 @@ if __name__ == '__main__':
 				tshark_analysis(work_queue)
 			else:
 				pass
+
 		except KeyboardInterrupt:
 			print('\nExit.')
 			os.kill(os.getpid(),signal.SIGKILL)
