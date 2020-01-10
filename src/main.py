@@ -36,9 +36,9 @@ session_size = 1024
 # tshark定期清空内存（单位秒/默认一小时），pcap接收数据包的超时时间（单位毫秒/默认3.6秒）
 timeout = 3600
 # 发送数据线程数量
-msg_send_thread_num = 10
+msg_send_thread_num = 20
 # 发送数据队列最大值
-max_queue_size = 500
+max_queue_size = 50000
 # 资产数据发送模式，仅支持HTTP，SYSLOG两种
 msg_send_mode = 'HTTP'
 # 流量采集引擎，仅支持TSHARK，PCAP两种
@@ -88,7 +88,7 @@ def tshark_analysis(work_queue):
 	shark_obj.run()
 
 def pcap_analysis(work_queue):
-	pcap_obj = tcp_http_pcap(work_queue, interface, custom_tag, return_deep_info, http_filter, cache_size, session_size, bpf_filter, timeout, debug)
+	pcap_obj = tcp_http_pcap(int(max_queue_size), work_queue, interface, custom_tag, return_deep_info, http_filter, cache_size, session_size, bpf_filter, timeout, debug)
 	pcap_obj.run()
 
 class thread_msg_send(threading.Thread):
@@ -105,7 +105,7 @@ class thread_msg_send(threading.Thread):
 					result = self.work_queue.popleft()
 					self.msg_obj.info(result)
 				else:
-					time.sleep(1)
+					time.sleep(0.5)
 			except:
 				pass
 
@@ -158,7 +158,7 @@ if __name__ == '__main__':
 
 		try:
 			# work_queue = queue.LifoQueue(max_queue_size)
-			work_queue = collections.deque(maxlen=max_queue_size)
+			work_queue = collections.deque(maxlen=int(max_queue_size))
 			if msg_send_mode == "HTTP":
 				http_url = "http://{}:{}/".format(server_ip,server_port)
 				msg_obj = _http_msg_send(http_url)
@@ -169,6 +169,7 @@ if __name__ == '__main__':
 			
 			for i in range(msg_send_thread_num):
 				msg_thread_obj = thread_msg_send(work_queue, msg_obj)
+				# msg_thread_obj.setDaemon(True)
 				msg_thread_obj.start()
 
 			if engine == 'PCAP':

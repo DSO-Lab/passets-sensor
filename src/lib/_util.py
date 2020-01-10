@@ -87,6 +87,6 @@ class _http_msg_send:
 	def __init__(self,http_url):
 		self.http_url = http_url
 	def info(self,msg):
-		self.req = requests.post(self.http_url, data=msg, verify=False, timeout=3)
+		self.req = requests.post(self.http_url, data=msg, verify=False, timeout=2)
 		# print(self.http_url)
 		# print(self.req.status_code)

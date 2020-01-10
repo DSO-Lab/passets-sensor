@@ -10,7 +10,7 @@ from cacheout import Cache, LRUCache
 
 class tcp_http_pcap():
 
-	def __init__(self, work_queue, interface, custom_tag, return_deep_info, http_filter_json, cache_size, session_size, bpf_filter, timeout, debug):
+	def __init__(self, max_queue_size, work_queue, interface, custom_tag, return_deep_info, http_filter_json, cache_size, session_size, bpf_filter, timeout, debug):
 		"""
 		构造函数
 		:param work_queue: 捕获资产数据消息发送队列
@@ -25,6 +25,7 @@ class tcp_http_pcap():
 		:param debug: 调试开关
 		"""
 		self.total_msg_num = 0
+		self.max_queue_size = max_queue_size
 		self.work_queue = work_queue
 		self.debug = debug
 		self.timeout = timeout
@@ -52,7 +53,7 @@ class tcp_http_pcap():
 		for ts, pkt in self.sniffer:
 
 			self.total_msg_num += 1
-			if self.total_msg_num%1000 > 0 and self.total_msg_num%1000 < 10:
+			if self.total_msg_num%1000 > 0 and self.total_msg_num%1000 < 5:
 				print("Asset analysis rate: %s"%(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())+" - "+str(self.total_msg_num)))
 
 			packet = self.pkt_decode(pkt)
@@ -218,4 +219,6 @@ class tcp_http_pcap():
 		result = json.dumps(data)
 		if self.debug:
 			print(result)
+		if len(self.work_queue) >= self.max_queue_size*0.95:
+			self.work_queue.clear()
 		self.work_queue.append(result)
