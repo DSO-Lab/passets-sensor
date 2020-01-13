@@ -52,10 +52,9 @@ class tcp_http_pcap():
 		入口函数
 		"""
 		for ts, pkt in self.sniffer:
-
-			self.total_msg_num += 1
-			if self.total_msg_num%1000 > 7 and self.total_msg_num%1000 < 9:
-				print("Asset analysis rate: %s"%(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())+" - "+str(self.total_msg_num)))
+			# self.total_msg_num += 1
+			# if self.total_msg_num%1000 == 0:
+			# 	print("Packet analysis rate: %s"%(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())+" - "+str(self.total_msg_num)))
 
 			packet = self.pkt_decode(pkt)
 			if not packet:

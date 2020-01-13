@@ -1,6 +1,6 @@
 ## 项目简述
 
-基于pyshark、tshark、pcap、pf_ring实现实时流量分析，使用http、syslog方式输出资产数据。
+基于pcap（或tshark）、pf_ring实现实时流量分析，使用http、syslog方式输出资产数据。
 
 ## main.py参数说明
 

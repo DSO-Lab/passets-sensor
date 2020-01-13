@@ -20,10 +20,13 @@ RUN apt-get -y update && \
     apt-get -y update && \
     apt-get -y install pfring && \
     DEBIAN_FRONTEND="noninteractive" apt-get -y install tshark && \
+    apt-get -y install libpcap-dev && \
     apt-get -y install python3 python3-pip python3-lxml && \
     pip3 install cacheout && \
     pip3 install pyshark && \
     pip3 install requests && \
+    pip3 install pypcap && \
+    pip3 install dpkt && \
     chmod 750 /usr/bin/dumpcap && \
     chgrp root /usr/bin/dumpcap && \
     apt-get clean all && \

@@ -24,7 +24,7 @@ custom_tag = '127.0.0.1'
 # bpf_filter
 bpf_filter = 'tcp'
 # display_filter
-# display_filter = 'tcp'
+display_filter = 'tcp'
 # debug模式，数据console输出
 debug = False
 # 开启深度数据分析
@@ -176,8 +176,6 @@ if __name__ == '__main__':
 				pcap_analysis(work_queue)
 			elif engine == 'TSHARK':
 				tshark_analysis(work_queue)
-			else:
-				pass
 
 		except KeyboardInterrupt:
 			print('\nExit.')
