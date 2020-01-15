@@ -55,11 +55,9 @@ class tcp_http_pcap():
 			# self.total_msg_num += 1
 			# if self.total_msg_num%1000 == 0:
 			# 	print("Packet analysis rate: %s"%(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())+" - "+str(self.total_msg_num)))
-
 			packet = self.pkt_decode(pkt)
 			if not packet:
 				continue
-
 			cache_key = '{}:{}'.format(packet.src, packet.sport)
 			# SYN & ACK
 			if packet.flags == 0x12:
@@ -71,38 +69,37 @@ class tcp_http_pcap():
 				next_seq = self.tcp_stream_cache.get('S_{}'.format(packet.seq))
 				if next_seq:
 					self.tcp_stream_cache.set('C_{}'.format(packet.ack), packet.data)
-					self.tcp_stream_cache.delete(packet.seq)
+					self.tcp_stream_cache.delete('S_{}'.format(packet.seq))
 					continue
-
 				# S->C first packet
 				send_data = self.tcp_stream_cache.get('C_{}'.format(packet.seq))
 				if send_data:
 					if send_data.find(b' HTTP/') != -1:
 						request_dict = self.decode_request(send_data)
 						response_dict = self.decode_response(packet.data)
-						response_code = response_dict['status']
-						content_type = response_dict['type']
+						if request_dict and response_dict:
+							response_code = response_dict['status']
+							content_type = response_dict['type']
 
-						# 根据响应状态码和页面类型进行过滤
-						if self.http_filter_json:
-							filter_code = self.http_filter('response_code', response_code) if response_code else False
-							filter_type = self.http_filter('content_type', content_type) if content_type else False
-							if filter_code or filter_type:
-								continue
-
-						data = {
-							'pro': 'HTTP',
-							'tag': self.custom_tag,
-							'ip': packet.src,
-							'port': packet.sport,
-							'method': request_dict['method'],
-							'code': response_code,
-							'type': content_type,
-							'server': response_dict['server'],
-							'header': response_dict['headers'],
-							'url': request_dict['uri'],
-							'body': response_dict['body']
-						}
+							# 根据响应状态码和页面类型进行过滤
+							if self.http_filter_json:
+								filter_code = self.http_filter('response_code', response_code) if response_code else False
+								filter_type = self.http_filter('content_type', content_type) if content_type else False
+								if filter_code or filter_type:
+									continue
+							data = {
+								'pro': 'HTTP',
+								'tag': self.custom_tag,
+								'ip': packet.src,
+								'port': packet.sport,
+								'method': request_dict['method'],
+								'code': response_code,
+								'type': content_type,
+								'server': response_dict['server'],
+								'header': response_dict['headers'],
+								'url': request_dict['uri'],
+								'body': response_dict['body']
+							}
 					else:
 						data = {
 							'pro': 'TCP',
@@ -111,7 +108,6 @@ class tcp_http_pcap():
 							'port': packet.sport,
 							'data': packet.data.hex()
 						}
-					
 					self.send_msg(data)
 					self.tcp_stream_cache.delete('C_{}'.format(packet.seq))
 
@@ -153,15 +149,15 @@ class tcp_http_pcap():
 		data_str = str(data, 'utf-8', 'ignore')
 		m = self.decode_request_regex.match(data_str)
 		if m:
-			headers = m.group(3).strip()
+			headers = m.group(3).strip() if m.group(3) else ''
 			header_dict = self.parse_headers(headers)
 			url = 'http://{}{}'.format(header_dict['Host'], m.group(2)) if 'Host' in header_dict else m.group(2)
 			
 			return {
-				'method': m.group(1),
+				'method': m.group(1) if m.group(1) else '',
 				'uri': url,
 				'headers': headers,
-				'body': m.group(4)
+				'body': m.group(4) if m.group(4) else ''
 			}
 
 		return None
@@ -172,13 +168,13 @@ class tcp_http_pcap():
 		header_str = str(data[:pos] if pos > 0 else data, 'utf-8', 'ignore')
 		m = self.decode_response_regex.match(header_str)
 		if m:
-			headers = m.group(3).strip()
+			headers = m.group(3).strip() if m.group(3) else ''
 			headers_dict = self.parse_headers(headers)
 			content_type = '' if 'Content-Type' not in headers_dict else headers_dict['Content-Type']
 			server = '' if 'Server' not in headers_dict else headers_dict['Server']
 			return {
-				'version': m.group(1),
-				'status': m.group(2),
+				'version': m.group(1) if m.group(1) else '',
+				'status': m.group(2) if m.group(2) else '',
 				'headers': headers,
 				'type': content_type,
 				'server': server,
@@ -193,8 +189,8 @@ class tcp_http_pcap():
 			return str(data, 'gbk', 'ignore')
 		m = self.decode_body_regex.match(data)
 		if m:
-			charset = m.group(1).lower()
-			if chardet != 'utf-8':
+			charset = m.group(1).lower() if m.group(1) else ''
+			if chardet and chardet != 'utf-8':
 				return str(data, charset, 'ignore')
 		
 		return str(data, 'utf-8', 'ignore')

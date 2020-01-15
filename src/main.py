@@ -36,7 +36,7 @@ session_size = 1024
 # tshark定期清空内存（单位秒/默认一小时），pcap接收数据包的超时时间（单位毫秒/默认3.6秒）
 timeout = 3600
 # 发送数据线程数量
-msg_send_thread_num = 1
+msg_send_thread_num = 5
 # 发送数据队列最大值
 max_queue_size = 50000
 # 资产数据发送模式，仅支持HTTP，SYSLOG两种
