@@ -185,12 +185,15 @@ class tcp_http_pcap():
 
 	def decode_body(self, data, content_type):
 		content_type = content_type.lower() if content_type else ''
-		if 'charset=gbk' in content_type or 'charset=gb2312' in content_type:
-			return str(data, 'gbk', 'ignore')
+		if 'charset=' in content_type:
+			charset = content_type[content_type.find('charset=')+8:].strip('" ;\r\n').lower()
+			if charset != 'iso-8859-1':
+				return str(data, charset, 'ignore')
+		
 		m = self.decode_body_regex.match(data)
 		if m:
 			charset = m.group(1).lower() if m.group(1) else ''
-			if chardet and chardet != 'utf-8':
+			if charset and charset != 'iso-8859-1':
 				return str(data, charset, 'ignore')
 		
 		return str(data, 'utf-8', 'ignore')
