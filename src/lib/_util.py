@@ -5,6 +5,7 @@ import logging.handlers
 import os
 import sys
 import requests
+import socket
 
 # TASK_LOCK_FILE临时文件，判断程序是否正在运行
 TASK_LOCK_FILE = sys.path[0]+'/passets_sensor.lock'
@@ -88,5 +89,22 @@ class _http_msg_send:
 		self.http_url = http_url
 	def info(self,msg):
 		self.req = requests.post(self.http_url, data=msg, verify=False, timeout=2)
-		# print(self.http_url)
-		# print(self.req.status_code)
+
+# TCP Send
+class _tcp_msg_send:
+	def __init__(self,server_ip,server_port):
+		self.server_ip = server_ip
+		self.server_port = server_port
+		self.tcp_client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		#心跳维护
+		self.tcp_client.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+		self.tcp_client.connect((self.server_ip, self.server_port))
+
+	def info(self,msg):
+		try:
+			self.tcp_client.send(msg.encode()+b"\n")
+			return True
+		except socket.error as e:
+			if e.errno == 32:
+				return False
+		# self.tcp_client.close()

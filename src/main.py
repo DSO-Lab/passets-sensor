@@ -3,7 +3,7 @@
 from lib._http_tcp_shark import tcp_http_shark
 from lib._http_tcp_pcap import tcp_http_pcap
 from lib._util import check_lock
-from lib._util import _syslog_msg_send, _http_msg_send
+from lib._util import _syslog_msg_send, _http_msg_send, _tcp_msg_send
 import getopt
 import sys
 import os
@@ -36,11 +36,11 @@ session_size = 1024
 # tshark定期清空内存（单位秒/默认一小时），pcap接收数据包的超时时间（单位毫秒/默认3.6秒）
 timeout = 3600
 # 发送数据线程数量
-msg_send_thread_num = 5
+msg_send_thread_num = 10
 # 发送数据队列最大值
 max_queue_size = 50000
-# 资产数据发送模式，仅支持HTTP，SYSLOG两种
-msg_send_mode = 'HTTP'
+# 资产数据发送模式，仅支持TCP，HTTP，SYSLOG三种
+msg_send_mode = 'TCP'
 # 流量采集引擎，仅支持TSHARK，PCAP两种
 engine = "PCAP"
 
@@ -92,23 +92,44 @@ def pcap_analysis(work_queue):
 	pcap_obj.run()
 
 class thread_msg_send(threading.Thread):
-	def __init__(self, work_queue, msg_obj):
+	def __init__(self, work_queue, msg_send_mode):
 
 		threading.Thread.__init__(self)
 		self.work_queue = work_queue
-		self.msg_obj = msg_obj
+		self.msg_send_mode = msg_send_mode
+		self.msg_obj = self.msg_obj_fun(self.msg_send_mode)
+
+	def msg_obj_fun(self, msg_send_mode):
+		if msg_send_mode == "TCP":
+			msg_obj = _tcp_msg_send(server_ip,server_port)
+		elif msg_send_mode == "HTTP":
+			http_url = "http://{}:{}/".format(server_ip,server_port)
+			msg_obj = _http_msg_send(http_url)
+		elif msg_send_mode == "SYSLOG":
+			msg_obj = _syslog_msg_send(server_ip,server_port)
+		else:
+			msg_obj = ''
+		return msg_obj
 
 	def run(self):
+		tcp_flag = True if self.msg_obj else False
+		total_msg_num = 0
 		while True:
-			try:
-				if self.work_queue and self.msg_obj:
-					result = self.work_queue.popleft()
-					self.msg_obj.info(result)
+			start = time.time()
+			if not tcp_flag:
+				self.msg_obj = self.msg_obj_fun(self.msg_send_mode)
+			if len(self.work_queue):
+				result = self.work_queue.popleft()
+				if msg_send_mode == "TCP":
+					tcp_flag = self.msg_obj.info(result)
+					total_msg_num += 1
+					if total_msg_num%100 == 0:
+						end = time.time()
+						print("Used Time: %s"%(end - start))
 				else:
-					time.sleep(0.5)
-			except:
-				pass
+					self.msg_obj.info(result)
 
+	
 if __name__ == '__main__':
 
 	# crontab方式启动
@@ -159,16 +180,9 @@ if __name__ == '__main__':
 		try:
 			# work_queue = queue.LifoQueue(max_queue_size)
 			work_queue = collections.deque(maxlen=int(max_queue_size))
-			if msg_send_mode == "HTTP":
-				http_url = "http://{}:{}/".format(server_ip,server_port)
-				msg_obj = _http_msg_send(http_url)
-			elif msg_send_mode == "SYSLOG":
-				msg_obj = _syslog_msg_send(server_ip,server_port)
-			else:
-				msg_obj = ''
 			
 			for i in range(msg_send_thread_num):
-				msg_thread_obj = thread_msg_send(work_queue, msg_obj)
+				msg_thread_obj = thread_msg_send(work_queue, msg_send_mode)
 				msg_thread_obj.setDaemon(True)
 				msg_thread_obj.start()
 
