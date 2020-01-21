@@ -72,7 +72,7 @@ services:
 ## CMD运行
 
 ```
-docker run --restart=unless-stopped -d -e tag="localhost" -e interface="ens192" -e ip="ServerIP" -e port="ServerPort" -e switch="on" -e debug="off" -e cache="1024" -e session="1024" -e timeout="3600" --net=host -it dsolab/passets-sensor:<tag> /bin/bash
+docker run --restart=unless-stopped -d -e tag="localhost" -e interface="ens192" -e ip="ServerIP" -e port="ServerPort" -e switch="on" -e debug="off" -e cache="1024" -e session="1024" -e timeout="3600" --privileged --net=host -it dsolab/passets-sensor:<tag> /bin/bash
 ```
 
 ## 输出数据格式

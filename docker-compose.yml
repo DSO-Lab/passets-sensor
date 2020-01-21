@@ -19,4 +19,5 @@ services:
       - http_filter_code=400,404,304
       - http_filter_type=audio/,video/,image/,font/,application/pdf,application/msword,application/javascript,text/javascript,text/css
     network_mode: host
+    privileged: true
     restart: unless-stopped
