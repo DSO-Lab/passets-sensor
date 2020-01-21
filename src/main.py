@@ -132,9 +132,9 @@ class thread_msg_send(threading.Thread):
 	
 if __name__ == '__main__':
 
-	# crontab方式启动
+	# 宿主机crontab方式启动
 	# */5 * * * * root /usr/bin/python3 /passets-sensor/main.py >> /dev/null 2>&1
-	# check_lock()
+	check_lock()
 
 	try:
 		opts,args = getopt.getopt(sys.argv[1:],'i: s: p: d: t: r: c: T: S:')
