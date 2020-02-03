@@ -66,6 +66,7 @@ services:
       # 非必填，根据http页面类型过滤
       - http_filter_type=audio/,video/,image/
     network_mode: host
+    privileged: true
     restart: unless-stopped
 ```
 
