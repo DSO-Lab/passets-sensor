@@ -4,7 +4,6 @@ ENV TZ="Asia/Shanghai" \
     tag="localhost" \
     cache="1024" \
     session="1024" \
-    switch="on" \
     timeout="3600" \
     debug="off" \
     http_filter_code="400,404,304" \
@@ -34,4 +33,4 @@ RUN apt-get -y update && \
     apt-get autoremove && \
     rm -f apt-ntop-stable.deb
 
-ENTRYPOINT ["/bin/bash","-c","/usr/bin/python3 /root/sensor/main.py -i $interface -t $tag -s $ip -p $port -c $cache -S $session -r $switch -T $timeout -d $debug"]
+ENTRYPOINT ["/bin/bash","-c","/usr/bin/python3 /root/sensor/main.py -i $interface -t $tag -s $ip -p $port -c $cache -S $session -T $timeout -d $debug"]

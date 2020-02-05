@@ -86,7 +86,7 @@ class tcp_http_shark():
 				result = json.dumps(pkt_json)
 				if self.debug:
 					print(result)
-				self.work_queue.put(result)
+				self.work_queue.append(result)
 		except:
 			traceback.print_exc()
 	
@@ -163,7 +163,7 @@ class tcp_http_shark():
 			if 'server' in http_dict:
 				pkt_json["server"] = pkt.http.server
 
-			# -r on开启深度数据分析，返回header和body等数据
+			# 开启深度数据分析，返回header和body等数据
 			if self.return_deep_info:
 				charset = 'utf-8'
 				# 检测 Content-Type 中的编码信息

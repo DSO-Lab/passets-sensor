@@ -76,7 +76,6 @@ def Usage():
  -c <cache_size>    Cache size(def: 1024)
  -S <session_size>  Session size(def: 1024)
  -T <timeout>       Memory clear time(def: 3600 sec)
- -r <off|on>        Depth information switch(def: on)
  -d <off|on>        Debug information switch(def: off)
  -------------------------------------------------------------------
 	''')
@@ -156,10 +155,10 @@ if __name__ == '__main__':
 			debug_str = str(a)
 			if debug_str == 'on':
 				debug = True
-		if o == '-r':
-			return_switch_str = str(a)
-			if return_switch_str == 'off':
-				return_deep_info = False
+		# if o == '-r':
+		# 	return_switch_str = str(a)
+		# 	if return_switch_str == 'off':
+		# 		return_deep_info = False
 		if o == '-c':
 			cache_size = int(a)
 		if o == '-S':

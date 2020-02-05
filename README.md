@@ -9,7 +9,6 @@
 -s  数据接收服务器地址，需必填
 -p  数据接收服务器监听端口，需必填
 -t  标识流量来源，Default:localhost
--r  深度资产信息采集开关，off|on，Default:on
 -d  Debug调试信息开关，off|on，Default:off
 -c  缓存大小，用于过滤瞬时重复数据，Default:1024
 -S  流量会话缓存大小，用于重组通讯会话，Default:1024
@@ -51,8 +50,6 @@ services:
       - port=ServerPort
       # 标识流量来源，Default:localhost
       - tag=localhost
-      # 深度资产信息采集开关，off|on，Default:on
-      - switch=on
       # 缓存大小，用于过滤瞬时重复数据，Default:1024
       - cache=1024
       # stream缓存大小，用于会话配对
@@ -72,7 +69,7 @@ services:
 ## CMD运行
 
 ```
-docker run --restart=unless-stopped -d -e tag="localhost" -e interface="ens192" -e ip="ServerIP" -e port="ServerPort" -e switch="on" -e debug="off" -e cache="1024" -e session="1024" -e timeout="3600" --privileged --net=host -it dsolab/passets-sensor:<tag> /bin/bash
+docker run --restart=unless-stopped -d -e tag="localhost" -e interface="ens192" -e ip="ServerIP" -e port="ServerPort" -e debug="off" -e cache="1024" -e session="1024" -e timeout="3600" --privileged --net=host -it dsolab/passets-sensor:<tag> /bin/bash
 ```
 
 ## 输出数据格式
