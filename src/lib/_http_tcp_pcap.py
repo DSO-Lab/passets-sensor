@@ -52,9 +52,9 @@ class tcp_http_pcap():
 		入口函数
 		"""
 		for ts, pkt in self.sniffer:
-			self.total_msg_num += 1
-			if self.total_msg_num%1000 == 0:
-				print("Packet analysis rate: %s"%(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())+" - "+str(self.total_msg_num)))
+			# self.total_msg_num += 1
+			# if self.total_msg_num%1000 == 0:
+			# 	print("Packet analysis rate: %s"%(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())+" - "+str(self.total_msg_num)))
 			packet = self.pkt_decode(pkt)
 			if not packet:
 				continue
@@ -75,7 +75,7 @@ class tcp_http_pcap():
 				send_data = self.tcp_stream_cache.get('C_{}'.format(packet.seq))
 				if send_data:
 					if send_data.find(b' HTTP/') != -1:
-						request_dict = self.decode_request(send_data)
+						request_dict = self.decode_request(send_data,packet.src,str(packet.sport))
 						response_dict = self.decode_response(packet.data)
 						if request_dict and response_dict:
 							response_code = response_dict['status']
@@ -145,13 +145,20 @@ class tcp_http_pcap():
 	def ip_addr(self, ip):
 		return '%d.%d.%d.%d'%tuple(ip)
 
-	def decode_request(self, data):
+	def decode_request(self, data,sip,sport):
 		data_str = str(data, 'utf-8', 'ignore')
 		m = self.decode_request_regex.match(data_str)
 		if m:
 			headers = m.group(3).strip() if m.group(3) else ''
 			header_dict = self.parse_headers(headers)
-			url = 'http://{}{}'.format(header_dict['Host'], m.group(2)) if 'Host' in header_dict else m.group(2)
+			host_domain = ''
+			# host domain
+			if 'Host' in header_dict and re.search('[a-zA-Z]', header_dict['Host']):
+				host_domain = header_dict['Host']
+			# host ip
+			else:
+				host_domain = sip+':'+sport if sport != '80' else sip 
+			url = 'http://{}{}'.format(host_domain, m.group(2)) if host_domain else m.group(2)
 			
 			return {
 				'method': m.group(1) if m.group(1) else '',

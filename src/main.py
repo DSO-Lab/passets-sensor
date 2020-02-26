@@ -112,19 +112,19 @@ class thread_msg_send(threading.Thread):
 
 	def run(self):
 		tcp_flag = True if self.msg_obj else False
-		total_msg_num = 0
+		# total_msg_num = 0
 		while True:
-			start = time.time()
+			# start = time.time()
 			if not tcp_flag:
 				self.msg_obj = self.msg_obj_fun(self.msg_send_mode)
 			if len(self.work_queue):
 				result = self.work_queue.popleft()
 				if msg_send_mode == "TCP":
 					tcp_flag = self.msg_obj.info(result)
-					total_msg_num += 1
-					if total_msg_num%100 == 0:
-						end = time.time()
-						print("Used Time: %s"%(end - start))
+					# total_msg_num += 1
+					# if total_msg_num%100 == 0:
+						# end = time.time()
+						# print("Used Time: %s"%(end - start))
 				else:
 					self.msg_obj.info(result)
 
