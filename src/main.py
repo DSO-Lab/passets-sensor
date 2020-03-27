@@ -174,7 +174,7 @@ if __name__ == '__main__':
 			http_filter['response_code'] = list(set(filter(None, os.environ["http_filter_code"].replace(" ","").split(","))))
 		if 'http_filter_type' in os.environ:
 			http_filter['content_type'] = list(set(filter(None, os.environ["http_filter_type"].replace(" ","").split(","))))
-		bpf_filter += ' and not (host {} and port {})'.format(server_ip,server_port)
+		bpf_filter += ' and not (host {} and port {}) and not (host 127.0.0.1 or host localhost) '.format(server_ip,server_port)
 
 		try:
 			# work_queue = queue.LifoQueue(max_queue_size)
