@@ -42,6 +42,7 @@ class tcp_http_pcap():
 		self.tcp_stream_cache = Cache(maxsize=self.session_size, ttl=30, timer=time.time, default=None)
 		if self.cache_size:
 			self.tcp_cache = Cache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
+			self.http_cache = Cache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
 		# http数据分析正则
 		self.decode_request_regex = re.compile(r'^([A-Z]+) +([^ ]+) +HTTP/\d+\.\d+?\r\n(.*?)\r\n\r\n(.*?)', re.S)
 		self.decode_response_regex = re.compile(r'^HTTP/(\d+\.\d+) (\d+)[^\r\n]*\r\n(.*?)$', re.S)
@@ -58,26 +59,73 @@ class tcp_http_pcap():
 			packet = self.pkt_decode(pkt)
 			if not packet:
 				continue
+			
+			# print('{}:{}->{}:{}: Seq:{}, Ack:{}, Flag: {}, Len: {}'.format(packet.src, packet.sport, packet.dst, packet.dport, packet.ack, packet.seq, packet.flags, len(packet.data)))
 			cache_key = '{}:{}'.format(packet.src, packet.sport)
 			# SYN & ACK
 			if packet.flags == 0x12:
 				if self.cache_size and self.tcp_cache.get(cache_key):
 					continue
+				
 				self.tcp_stream_cache.set('S_{}'.format(packet.ack), packet.seq + 1)
-			else:
-				# C->S first packet
-				next_seq = self.tcp_stream_cache.get('S_{}'.format(packet.seq))
-				if next_seq:
-					self.tcp_stream_cache.set('C_{}'.format(packet.ack), packet.data)
+			
+			# ACK || PSH-ACK
+			elif packet.flags in [0x10, 0x18, 0x19]:
+				# 长度为0的数据包不处理
+				if len(packet.data) == 0:
+					continue
+
+				# 第一个有数据的请求包，先缓存下来
+				# Seq == SYN-ACK Ack
+				pre_cs_seq = self.tcp_stream_cache.get('S_{}'.format(packet.seq))
+				if pre_cs_seq:
+					c_s_key = 'C_{}'.format(packet.ack)
+					
+					self.tcp_stream_cache.set(c_s_key, packet.data)
 					self.tcp_stream_cache.delete('S_{}'.format(packet.seq))
 					continue
-				# S->C first packet
+
+				# 1. 提取服务器主动响应的通讯，例如：MySQL
+				# Seq == SYN-ACK Seq + 1
+				pre_sc_seq = self.tcp_stream_cache.get('S_{}'.format(packet.ack))
+				if pre_sc_seq == packet.seq:
+					self.tcp_stream_cache.delete('S_{}'.format(packet.ack))
+
+					# 瞬时重复处理
+					if self.cache_size:
+						self.tcp_cache.set(cache_key, True)
+					
+					data = {
+						'pro': 'TCP',
+						'tag': self.custom_tag,
+						'ip': packet.src,
+						'port': packet.sport,
+						'data': packet.data.hex()
+					}
+					self.send_msg(data)
+					continue
+
+				# 2. 提取需要请求服务器才会响应的通讯，例如：HTTP
+				# Seq == PSH ACK(C->S) Ack
 				send_data = self.tcp_stream_cache.get('C_{}'.format(packet.seq))
+				# 判断是否存在请求数据
 				if send_data:
-					if send_data.find(b' HTTP/') != -1:
-						request_dict = self.decode_request(send_data,packet.src,str(packet.sport))
+					# 删除已使用的缓存
+					self.tcp_stream_cache.delete('C_{}'.format(packet.seq))
+
+					# 2.1 处理 HTTP 通讯
+					if send_data.find(b' HTTP/') > 0:
+						request_dict = self.decode_request(send_data, packet.src, str(packet.sport))
+						cache_key = '{}:{}'.format(request_dict['method'], request_dict['uri'])
+						if self.cache_size and self.http_cache.get(cache_key):
+							continue
+						
 						response_dict = self.decode_response(packet.data)
 						if request_dict and response_dict:
+							# 瞬时重复处理
+							if self.cache_size:
+								self.http_cache.set(cache_key, True)
+								
 							response_code = response_dict['status']
 							content_type = response_dict['type']
 
@@ -87,6 +135,7 @@ class tcp_http_pcap():
 								filter_type = self.http_filter('content_type', content_type) if content_type else False
 								if filter_code or filter_type:
 									continue
+							
 							data = {
 								'pro': 'HTTP',
 								'tag': self.custom_tag,
@@ -100,20 +149,24 @@ class tcp_http_pcap():
 								'url': request_dict['uri'],
 								'body': response_dict['body']
 							}
-					else:
-						data = {
-							'pro': 'TCP',
-							'tag': self.custom_tag,
-							'ip': packet.src,
-							'port': packet.sport,
-							'data': packet.data.hex()
-						}
-					self.send_msg(data)
-					self.tcp_stream_cache.delete('C_{}'.format(packet.seq))
 
+							self.send_msg(data)
+							continue
+					
 					# 瞬时重复处理
 					if self.cache_size:
 						self.tcp_cache.set(cache_key, True)
+					
+					# 2.2 非 HTTP 通讯
+					data = {
+						'pro': 'TCP',
+						'tag': self.custom_tag,
+						'ip': packet.src,
+						'port': packet.sport,
+						'data': packet.data.hex()
+					}
+					self.send_msg(data)
+				
 
 		self.sniffer.close()
 
