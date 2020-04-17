@@ -91,7 +91,7 @@ class tcp_http_pcap():
 				if pre_sc_seq == packet.seq:
 					self.tcp_stream_cache.delete('S_{}'.format(packet.ack))
 
-					# 瞬时重复处理
+					# TCP瞬时重复处理
 					if self.cache_size:
 						self.tcp_cache.set(cache_key, True)
 					
@@ -116,44 +116,45 @@ class tcp_http_pcap():
 					# 2.1 处理 HTTP 通讯
 					if send_data.find(b' HTTP/') > 0:
 						request_dict = self.decode_request(send_data, packet.src, str(packet.sport))
-						cache_key = '{}:{}'.format(request_dict['method'], request_dict['uri'])
-						if self.cache_size and self.http_cache.get(cache_key):
-							continue
-						
-						response_dict = self.decode_response(packet.data)
-						if request_dict and response_dict:
-							# 瞬时重复处理
-							if self.cache_size:
-								self.http_cache.set(cache_key, True)
-								
-							response_code = response_dict['status']
-							content_type = response_dict['type']
-
-							# 根据响应状态码和页面类型进行过滤
-							if self.http_filter_json:
-								filter_code = self.http_filter('response_code', response_code) if response_code else False
-								filter_type = self.http_filter('content_type', content_type) if content_type else False
-								if filter_code or filter_type:
-									continue
+						if request_dict:
+							http_cache_key = '{}:{}'.format(request_dict['method'], request_dict['uri'])
+							if self.cache_size and self.http_cache.get(http_cache_key):
+								continue
 							
-							data = {
-								'pro': 'HTTP',
-								'tag': self.custom_tag,
-								'ip': packet.src,
-								'port': packet.sport,
-								'method': request_dict['method'],
-								'code': response_code,
-								'type': content_type,
-								'server': response_dict['server'],
-								'header': response_dict['headers'],
-								'url': request_dict['uri'],
-								'body': response_dict['body']
-							}
+							response_dict = self.decode_response(packet.data)
+							if request_dict and response_dict:
+								# HTTP瞬时重复处理
+								if self.cache_size:
+									self.http_cache.set(http_cache_key, True)
+									
+								response_code = response_dict['status']
+								content_type = response_dict['type']
 
-							self.send_msg(data)
-							continue
+								# 根据响应状态码和页面类型进行过滤
+								if self.http_filter_json:
+									filter_code = self.http_filter('response_code', response_code) if response_code else False
+									filter_type = self.http_filter('content_type', content_type) if content_type else False
+									if filter_code or filter_type:
+										continue
+								
+								data = {
+									'pro': 'HTTP',
+									'tag': self.custom_tag,
+									'ip': packet.src,
+									'port': packet.sport,
+									'method': request_dict['method'],
+									'code': response_code,
+									'type': content_type,
+									'server': response_dict['server'],
+									'header': response_dict['headers'],
+									'url': request_dict['uri'],
+									'body': response_dict['body']
+								}
+
+								self.send_msg(data)
+								continue
 					
-					# 瞬时重复处理
+					# TCP瞬时重复处理
 					if self.cache_size:
 						self.tcp_cache.set(cache_key, True)
 					
