@@ -6,6 +6,9 @@ import time
 import json
 import sys
 import re
+import io
+import gzip
+import brotli
 from cacheout import Cache, LRUCache
 
 class tcp_http_pcap():
@@ -44,7 +47,7 @@ class tcp_http_pcap():
 			self.tcp_cache = Cache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
 			self.http_cache = Cache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
 		# http数据分析正则
-		self.decode_request_regex = re.compile(r'^([A-Z]+) +([^ ]+) +HTTP/\d+\.\d+?\r\n(.*?)\r\n\r\n(.*?)', re.S)
+		self.decode_request_regex = re.compile(r'^([A-Z]+) +([^ \r\n]+) +HTTP/\d+\.\d+?\r\n(.*?)$', re.S)
 		self.decode_response_regex = re.compile(r'^HTTP/(\d+\.\d+) (\d+)[^\r\n]*\r\n(.*?)$', re.S)
 		self.decode_body_regex = re.compile(rb'<meta[^>]+?charset=[\'"]?([a-z\d\-]+)[\'"]?', re.I)
 
@@ -199,16 +202,18 @@ class tcp_http_pcap():
 	def ip_addr(self, ip):
 		return '%d.%d.%d.%d'%tuple(ip)
 
-	def decode_request(self, data,sip,sport):
-		data_str = str(data, 'utf-8', 'ignore')
+	def decode_request(self, data, sip, sport):
+		pos = data.find(b'\r\n\r\n')
+		body = data[pos+4:] if pos > 0 else b''
+		data_str = str(data[:pos] if pos > 0 else data, 'utf-8', 'ignore')
 		m = self.decode_request_regex.match(data_str)
 		if m:
 			headers = m.group(3).strip() if m.group(3) else ''
 			header_dict = self.parse_headers(headers)
 			host_domain = ''
 			# host domain
-			if 'Host' in header_dict and re.search('[a-zA-Z]', header_dict['Host']):
-				host_domain = header_dict['Host']
+			if 'host' in header_dict and re.search('[a-zA-Z]', header_dict['host']):
+				host_domain = header_dict['host']
 			# host ip
 			else:
 				host_domain = sip+':'+sport if sport != '80' else sip 
@@ -218,7 +223,7 @@ class tcp_http_pcap():
 				'method': m.group(1) if m.group(1) else '',
 				'uri': url,
 				'headers': headers,
-				'body': m.group(4) if m.group(4) else ''
+				'body': str(body, 'utf-8', 'ignore')
 			}
 
 		return None
@@ -231,8 +236,17 @@ class tcp_http_pcap():
 		if m:
 			headers = m.group(3).strip() if m.group(3) else ''
 			headers_dict = self.parse_headers(headers)
-			content_type = '' if 'Content-Type' not in headers_dict else headers_dict['Content-Type']
-			server = '' if 'Server' not in headers_dict else headers_dict['Server']
+			if self.return_deep_info and 'transfer-encoding' in headers_dict and headers_dict['transfer-encoding'] == 'chunked':
+				body = self.decode_chunked(body)
+
+			if self.return_deep_info and 'content-encoding' in headers_dict:
+				if headers_dict['content-encoding'] == 'gzip':
+					body = self.decode_gzip(body)
+				elif headers_dict['content-encoding'] == 'br':
+					body = self.decode_brotli(body)
+
+			content_type = '' if 'content-type' not in headers_dict else headers_dict['content-type']
+			server = '' if 'server' not in headers_dict else headers_dict['server']
 			return {
 				'version': m.group(1) if m.group(1) else '',
 				'status': m.group(2) if m.group(2) else '',
@@ -243,6 +257,58 @@ class tcp_http_pcap():
 			}
 		
 		return None
+
+	def decode_gzip(self, data):
+		'''
+		还原 HTTP 响应中采用 gzip 压缩的数据
+		标识：
+		Content-Encoding: gzip
+		'''
+		try:
+			buf = io.BytesIO(data)
+			gf = gzip.GzipFile(fileobj = buf)
+			content = gf.read()
+			gf.close()
+
+			return content
+		except:
+			return data
+
+	def decode_brotli(self, data):
+		'''
+		还原 HTTP 响应中采用 brotli 压缩的数据
+		标识：
+		Content-Encoding: br
+		'''
+		try:
+			return brotli.decompress(data)
+		except:
+			return data
+
+	def decode_chunked(self, data):
+		'''
+		还原 HTTP 响应中被 Chunked 的数据
+		示例:
+		Transfer-Encoding: chunked
+
+		1b
+		{"ret":0, "messge":"error"}
+		'''
+		line_end = data.find(b'\r\n')
+		if line_end > 0:
+			data_len = -1
+			try:
+				data_len = int(data[: line_end], 16)
+				if data_len == 0:
+					return b''
+				
+				if data_len > 0:
+					new_data = data[line_end + 2: line_end + 2 + data_len]
+					return new_data + self.decode_chunked(data[line_end + 2 + data_len + 2: ])
+			except:
+				return data
+			
+		return data
 
 	def decode_body(self, data, content_type):
 		charset_white_list = ['big5','big5-hkscs','cesu-8','euc-jp','euc-kr','gb18030','gb2312','gbk','ibm-thai','ibm00858','ibm01140','ibm01141','ibm01142','ibm01143','ibm01144','ibm01145','ibm01146','ibm01147','ibm01148','ibm01149','ibm037','ibm1026','ibm1047','ibm273','ibm277','ibm278','ibm280','ibm284','ibm285','ibm290','ibm297','ibm420','ibm424','ibm437','ibm500','ibm775','ibm850','ibm852','ibm855','ibm857','ibm860','ibm861','ibm862','ibm863','ibm864','ibm865','ibm866','ibm868','ibm869','ibm870','ibm871','ibm918','iso-10646-ucs-2','iso-2022-cn','iso-2022-jp','iso-2022-jp-2','iso-2022-kr','iso-8859-1','iso-8859-10','iso-8859-13','iso-8859-15','iso-8859-16','iso-8859-2','iso-8859-3','iso-8859-4','iso-8859-5','iso-8859-6','iso-8859-7','iso-8859-8','iso-8859-9','jis_x0201','jis_x0212-1990','koi8-r','koi8-u','shift_jis','tis-620','us-ascii','utf-16','utf-16be','utf-16le','utf-32','utf-32be','utf-32le','utf-8','windows-1250','windows-1251','windows-1252','windows-1253','windows-1254','windows-1255','windows-1256','windows-1257','windows-1258','windows-31j','x-big5-hkscs-2001','x-big5-solaris','x-euc-jp-linux','x-euc-tw','x-eucjp-open','x-ibm1006','x-ibm1025','x-ibm1046','x-ibm1097','x-ibm1098','x-ibm1112','x-ibm1122','x-ibm1123','x-ibm1124','x-ibm1166','x-ibm1364','x-ibm1381','x-ibm1383','x-ibm300','x-ibm33722','x-ibm737','x-ibm833','x-ibm834','x-ibm856','x-ibm874','x-ibm875','x-ibm921','x-ibm922','x-ibm930','x-ibm933','x-ibm935','x-ibm937','x-ibm939','x-ibm942','x-ibm942c','x-ibm943','x-ibm943c','x-ibm948','x-ibm949','x-ibm949c','x-ibm950','x-ibm964','x-ibm970','x-iscii91','x-iso-2022-cn-cns','x-iso-2022-cn-gb','x-iso-8859-11','x-jis0208','x-jisautodetect','x-johab','x-macarabic','x-maccentraleurope','x-maccroatian','x-maccyrillic','x-macdingbat','x-macgreek','x-machebrew','x-maciceland','x-macroman','x-macromania','x-macsymbol','x-macthai','x-macturkish','x-macukraine','x-ms932_0213','x-ms950-hkscs','x-ms950-hkscs-xp','x-mswin-936','x-pck','x-sjis','x-sjis_0213','x-utf-16le-bom','x-utf-32be-bom','x-utf-32le-bom','x-windows-50220','x-windows-50221','x-windows-874','x-windows-949','x-windows-950','x-windows-iso2022jp']
@@ -260,20 +326,13 @@ class tcp_http_pcap():
 		
 		return str(data, 'utf-8', 'ignore')
 
-		# 自动尝试解码，非常消耗性能
-		# import chardet
-		# result = chardet.detect(data)
-		# if result and 'encoding' in result and result['encoding']:
-		# 	if result['encoding'] != 'utf-8':
-		# 		return str(data, result['encoding'], 'ignore')
-
 	def parse_headers(self, data):
 		headers = {}
 		lines = data.split('\r\n')
 		for _ in lines:
 			pos = _.find(':')
 			if pos > 0:
-				headers[_[:pos]] = _[pos+1:].strip()
+				headers[_[:pos].lower()] = _[pos+1:].strip()
 		return headers
 
 	def send_msg(self, data):
