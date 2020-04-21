@@ -226,7 +226,7 @@ class tcp_http_pcap():
 				'body': str(body, 'utf-8', 'ignore')
 			}
 
-		return {'method':'', 'uri':'http://{}{}'.format(sip, sport), 'headers':'', 'body':''}
+		return {'method':'', 'uri':'http://{}:{}/'.format(sip, sport), 'headers':'', 'body':''}
 
 	def decode_response(self, data):
 		pos = data.find(b'\r\n\r\n')
