@@ -10,13 +10,14 @@ from cacheout import Cache, LRUCache
 
 class tcp_http_shark():
 
-	def __init__(self, work_queue, interface, custom_tag, return_deep_info, http_filter_json, cache_size, session_size, bpf_filter, timeout, debug):
+	def __init__(self, work_queue, interface, custom_tag, deep_info, record_request, http_filter_json, cache_size, session_size, bpf_filter, timeout, debug):
 		"""
 		构造函数
 		:param work_queue: 捕获资产数据消息发送队列
 		:param interface: 捕获流量的网卡名
 		:param custom_tag: 数据标签，用于区分不同的采集引擎
-		:param return_deep_info: 是否处理更多信息，包括原始请求、响应头和正文
+		:param deep_info: 是否开启深度采集模式
+		:param record_request: 是否记录请求数据
 		:param http_filter_json: HTTP过滤器配置，支持按状态和内容类型过滤
 		:param cache_size: 缓存的已处理数据条数，120秒内重复的数据将不会发送Syslog
 		:param session_size: 缓存的HTTP/TCP会话数量，16秒未使用的会话将被自动清除
@@ -31,7 +32,8 @@ class tcp_http_shark():
 		self.cache_size = cache_size
 		self.session_size = session_size
 		self.http_filter_json = http_filter_json
-		self.return_deep_info = return_deep_info
+		self.deep_info = deep_info
+		self.record_request = record_request
 		self.custom_tag = custom_tag
 		self.interface = interface
 		self.pktcap = pyshark.LiveCapture(interface=self.interface, bpf_filter=self.bpf_filter, use_json=False, debug=self.debug)
@@ -164,7 +166,7 @@ class tcp_http_shark():
 				pkt_json["server"] = pkt.http.server
 
 			# 开启深度数据分析，返回header和body等数据
-			if self.return_deep_info:
+			if self.deep_info:
 				charset = 'utf-8'
 				# 检测 Content-Type 中的编码信息
 				if 'type' in pkt_json and 'charset=' in pkt_json["type"]:
@@ -229,7 +231,7 @@ class tcp_http_shark():
 					return None
 				self.tcp_cache.set(tcp_info, True)
 
-			if self.return_deep_info and self.session_size:
+			if self.deep_info and self.session_size:
 				self.tcp_stream_cache.set(tcp_stream, tcp_info)
 			else:
 				pkt_json["ip"] = server_ip
@@ -238,7 +240,7 @@ class tcp_http_shark():
 				return pkt_json
 		
 		# -r on开启深度数据分析，采集server第一个响应数据包
-		if self.return_deep_info and pkt.tcp.seq == "1" and "payload" in dir(pkt.tcp) and self.session_size:
+		if self.deep_info and pkt.tcp.seq == "1" and "payload" in dir(pkt.tcp) and self.session_size:
 			tcp_info = self.tcp_stream_cache.get(tcp_stream)
 			if tcp_info:
 				# 防止误处理客户端发第一个包的情况

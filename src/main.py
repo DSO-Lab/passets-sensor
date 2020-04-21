@@ -27,8 +27,10 @@ bpf_filter = 'tcp'
 display_filter = 'tcp'
 # debug模式，数据console输出
 debug = False
+# 记录请求数据
+record_request = False
 # 开启深度数据分析
-return_deep_info = True
+deep_info = True
 # 重复缓存数量
 cache_size = 1024
 # 流量会话数量
@@ -76,6 +78,8 @@ def Usage():
  -c <cache_size>    Cache size(def: 1024)
  -S <session_size>  Session size(def: 1024)
  -T <timeout>       Memory clear time(def: 3600 sec)
+ -D <deep_info>	    Deep packet analysis(def: off)
+ -r <off|on>        Record request info(def: off)
  -d <off|on>        Debug information switch(def: off)
  -------------------------------------------------------------------
 	''')
@@ -83,11 +87,11 @@ def Usage():
 
 def tshark_analysis(work_queue):
 
-	shark_obj = tcp_http_shark(work_queue, interface, custom_tag, return_deep_info, http_filter, cache_size, session_size, bpf_filter, timeout, debug)
+	shark_obj = tcp_http_shark(work_queue, interface, custom_tag, deep_info, record_request, http_filter, cache_size, session_size, bpf_filter, timeout, debug)
 	shark_obj.run()
 
 def pcap_analysis(work_queue):
-	pcap_obj = tcp_http_pcap(int(max_queue_size), work_queue, interface, custom_tag, return_deep_info, http_filter, cache_size, session_size, bpf_filter, timeout, debug)
+	pcap_obj = tcp_http_pcap(int(max_queue_size), work_queue, interface, custom_tag, deep_info, record_request, http_filter, cache_size, session_size, bpf_filter, timeout, debug)
 	pcap_obj.run()
 
 class thread_msg_send(threading.Thread):
@@ -136,7 +140,7 @@ if __name__ == '__main__':
 	# check_lock()
 
 	try:
-		opts,args = getopt.getopt(sys.argv[1:],'i: s: p: d: t: r: c: T: S:')
+		opts,args = getopt.getopt(sys.argv[1:],'i: s: p: d: D: t: r: c: T: S:')
 	except:
 		Usage()
 	if len(opts) < 3:
@@ -155,10 +159,14 @@ if __name__ == '__main__':
 			debug_str = str(a)
 			if debug_str == 'on':
 				debug = True
-		# if o == '-r':
-		# 	return_switch_str = str(a)
-		# 	if return_switch_str == 'off':
-		# 		return_deep_info = False
+		if o == '-D':
+			deep_str = str(a)
+			if deep_str == 'off':
+				deep_info = False
+		if o == '-r':
+			record_str = str(a)
+			if record_str == 'on':
+				record_request = True
 		if o == '-c':
 			cache_size = int(a)
 		if o == '-S':
@@ -192,7 +200,7 @@ if __name__ == '__main__':
 
 		except KeyboardInterrupt:
 			print('\nExit.')
-			os.kill(os.getpid(),signal.SIGKILL)
+			os.kill(os.getpid(), signal.SIGKILL)
 		except :
 			traceback.print_exc()
 	else:
