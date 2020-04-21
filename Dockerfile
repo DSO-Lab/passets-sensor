@@ -27,7 +27,6 @@ RUN apt-get -y update && \
     pip3 install pypcap && \
     pip3 install dpkt && \
     pip3 install brotli && \
-    pip3 install gzip && \
     chmod 750 /usr/bin/dumpcap && \
     chgrp root /usr/bin/dumpcap && \
     apt-get clean all && \
