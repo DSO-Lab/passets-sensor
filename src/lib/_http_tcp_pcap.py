@@ -124,7 +124,6 @@ class tcp_http_pcap():
 							continue
 						
 						response_dict = self.decode_response(packet.data)
-						print(response_dict)
 						if response_dict:
 							# HTTP瞬时重复处理
 							if self.cache_size:
