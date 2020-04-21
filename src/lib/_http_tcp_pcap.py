@@ -307,8 +307,8 @@ class tcp_http_pcap():
 			header_dict = self.parse_headers(headers)
 			host_domain = ''
 			# host domain
-			if 'Host' in header_dict and re.search('[a-zA-Z]', header_dict['Host']):
-				host_domain = header_dict['Host']
+			if 'host' in header_dict and re.search('[a-zA-Z]', header_dict['host']):
+				host_domain = header_dict['host']
 			# host ip
 			else:
 				host_domain = sip+':'+sport if sport != '80' else sip 
@@ -331,17 +331,17 @@ class tcp_http_pcap():
 		if m:
 			headers = m.group(3).strip() if m.group(3) else ''
 			headers_dict = self.parse_headers(headers)
-			if self.deep_info and 'Transfer-Encoding' in headers_dict and headers_dict['Transfer-Encoding'] == 'chunked':
+			if self.deep_info and 'transfer-encoding' in headers_dict and headers_dict['transfer-encoding'] == 'chunked':
 				body = self.decode_chunked(body)
 
-			if self.deep_info and 'Content-Encoding' in headers_dict:
-				if headers_dict['Content-Encoding'] == 'gzip':
+			if self.deep_info and 'content-encoding' in headers_dict:
+				if headers_dict['content-encoding'] == 'gzip':
 					body = self.decode_gzip(body)
-				elif headers_dict['Content-Encoding'] == 'br':
+				elif headers_dict['content-encoding'] == 'br':
 					body = self.decode_brotli(body)
 			
-			content_type = '' if 'Content-Type' not in headers_dict else headers_dict['Content-Type']
-			server = '' if 'Server' not in headers_dict else headers_dict['Server']
+			content_type = '' if 'content-type' not in headers_dict else headers_dict['content-type']
+			server = '' if 'server' not in headers_dict else headers_dict['server']
 			return {
 				'version': m.group(1) if m.group(1) else '',
 				'status': m.group(2) if m.group(2) else '',
@@ -434,7 +434,7 @@ class tcp_http_pcap():
 		for _ in lines:
 			pos = _.find(':')
 			if pos > 0:
-				headers[_[:pos]] = _[pos+1:].strip()
+				headers[_[:pos].lower()] = _[pos+1:].strip()
 		return headers
 
 	def merge_fragments_data(self, data):
