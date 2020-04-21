@@ -210,48 +210,48 @@ class tcp_http_pcap():
 			return
 
 		# 2.1 处理 HTTP 通讯
-		if request.find(b' HTTP/') > 0:
+		if response[:5] == b'HTTP/':
 			request_dict = self.decode_request(request, ip, str(port))
-			if request_dict:
-				http_cache_key = '{}:{}'.format(request_dict['method'], request_dict['uri'])
-				if self.cache_size and self.http_cache.get(http_cache_key):
-					return
-				
-				response_dict = self.decode_response(response)
-				if request_dict and response_dict:
-					# HTTP瞬时重复处理
-					if self.cache_size:
-						self.http_cache.set(http_cache_key, True)
-						
-					response_code = response_dict['status']
-					content_type = response_dict['type']
-
-					# 根据响应状态码和页面类型进行过滤
-					if self.http_filter_json:
-						filter_code = self.http_filter('response_code', response_code) if response_code else False
-						filter_type = self.http_filter('content_type', content_type) if content_type else False
-						if filter_code or filter_type:
-							return
+			
+			http_cache_key = '{}:{}'.format(request_dict['method'], request_dict['uri'])
+			if self.cache_size and self.http_cache.get(http_cache_key):
+				return
+			
+			response_dict = self.decode_response(response)
+			if response_dict:
+				# HTTP瞬时重复处理
+				if self.cache_size:
+					self.http_cache.set(http_cache_key, True)
 					
-					data = {
-						'pro': 'HTTP',
-						'tag': self.custom_tag,
-						'ip': ip,
-						'port': port,
-						'method': request_dict['method'],
-						'code': response_code,
-						'type': content_type,
-						'server': response_dict['server'],
-						'header': response_dict['headers'],
-						'url': request_dict['uri'],
-						'body': response_dict['body']
-					}
+				response_code = response_dict['status']
+				content_type = response_dict['type']
 
-					if self.record_request:
-						data['request_body'] = request.hex()
+				# 根据响应状态码和页面类型进行过滤
+				if self.http_filter_json:
+					filter_code = self.http_filter('response_code', response_code) if response_code else False
+					filter_type = self.http_filter('content_type', content_type) if content_type else False
+					if filter_code or filter_type:
+						return
+				
+				data = {
+					'pro': 'HTTP',
+					'tag': self.custom_tag,
+					'ip': ip,
+					'port': port,
+					'method': request_dict['method'],
+					'code': response_code,
+					'type': content_type,
+					'server': response_dict['server'],
+					'header': response_dict['headers'],
+					'url': request_dict['uri'],
+					'body': response_dict['body']
+				}
 
-					self.send_msg(data)
-					return
+				if self.record_request:
+					data['request_body'] = request.hex()
+
+				self.send_msg(data)
+				return
 			
 		# TCP瞬时重复处理
 		if self.cache_size:
@@ -267,6 +267,7 @@ class tcp_http_pcap():
 		}
 		if self.record_request:
 			data['request_data'] = request.hex()
+		
 		self.send_msg(data)
 
 	def http_filter(self, key, value):
@@ -297,7 +298,7 @@ class tcp_http_pcap():
 	def ip_addr(self, ip):
 		return '%d.%d.%d.%d'%tuple(ip)
 
-	def decode_request(self, data,sip,sport):
+	def decode_request(self, data, sip, sport):
 		pos = data.find(b'\r\n\r\n')
 		body = data[pos+4:] if pos > 0 else b''
 		data_str = str(data[:pos] if pos > 0 else data, 'utf-8', 'ignore')
@@ -321,7 +322,7 @@ class tcp_http_pcap():
 				'body': str(body, 'utf-8', 'ignore')
 			}
 
-		return None
+		return {'method':'', 'uri':'http://{}:{}/'.format(sip, sport), 'headers':'', 'body':''}
 
 	def decode_response(self, data):
 		pos = data.find(b'\r\n\r\n')
