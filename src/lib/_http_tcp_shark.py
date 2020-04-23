@@ -7,6 +7,7 @@ import re
 import traceback
 import concurrent.futures
 from cacheout import Cache, LRUCache
+from ._util import proc_body_str, proc_data_str
 
 class tcp_http_shark():
 
@@ -197,8 +198,8 @@ class tcp_http_shark():
 					if match:
 						charset = str(match.group(1).strip().lower(), 'utf-8', 'ignore')
 					
-					response_body = self.proc_body_str(str(data, charset, 'ignore'), 16*1024)
-					# response_body = self.proc_body_json(str(data, charset, 'ignore'), 16*1024)
+					response_body = proc_body_str(str(data, charset, 'ignore'), 16*1024)
+					# response_body = proc_body_json(str(data, charset, 'ignore'), 16*1024)
 					pkt_json["body"] = response_body
 				else:
 					pkt_json["body"] = ''
@@ -253,49 +254,11 @@ class tcp_http_shark():
 				pkt_json["ip"] = pkt.ip.src
 				pkt_json["port"] = pkt[pkt.transport_layer].srcport
 				payload_data = pkt.tcp.payload.replace(":","")
-				if payload_data.startswith("48545450"): # ^HTTP
+				if payload_data.startswith("485454502F"): # ^HTTP/
 					return None
 				
-				# HTTPS Protocol
-				# TODO: other https port support 
-				if pkt_json["port"] == "443" and payload_data.startswith("1603"): # SSL
-					pkt_json["pro"] = 'HTTPS'
-					pkt_json["url"] = "https://{}/".format(pkt_json["ip"])
-				else:
-					pkt_json["data"] = payload_data
+				pkt_json["data"] = proc_data_str(payload_data, 16 * 1024)
 				
 				return pkt_json
 		return None
 
-	def proc_body_str(self, data, length):
-		"""
-		body按照字节大小截取，防止超长，截取开头2/3和结尾1/3
-		:param data: 原始数据
-		:param length: 截取的数据长度
-		:return: 截断后的数据		
-		"""
-		if len(data) <= length:
-			return data
-		head_length = int(length*2//3)
-		end_length = length - head_length
-		intercept_data_head = data[:head_length]
-		intercept_data_end = data[-end_length:]
-		return intercept_data_head+intercept_data_end
-
-	def proc_body_json(self, data, length):
-		"""
-		防止转换为 JSON 后超长的数据截取方法
-		:param data: 原始数据
-		:param length: 截取的数据长度
-		:return: 截断后的数据
-		"""
-		json_data = json.dumps(data)[:length]
-		total_len = len(json_data)
-		if total_len < length:
-			return data
-		
-		pos = json_data.rfind("\\u")
-		if pos + 6 > len(json_data):
-			json_data = json_data[:pos]
-		
-		return json.loads(json_data.rstrip(r'\"') + '"')

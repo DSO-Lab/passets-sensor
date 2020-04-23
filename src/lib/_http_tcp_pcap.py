@@ -10,6 +10,7 @@ import io
 import gzip
 import brotli
 from cacheout import Cache, LRUCache
+from ._util import proc_body_str, proc_data_str
 
 class tcp_http_pcap():
 
@@ -201,7 +202,7 @@ class tcp_http_pcap():
 				'tag': self.custom_tag,
 				'ip': ip,
 				'port': port,
-				'data': response.hex()
+				'data': proc_data_str(response.hex(), 16 * 1024)
 			}
 			if self.record_request:
 				data['request_data'] = ''
@@ -246,31 +247,30 @@ class tcp_http_pcap():
 					'server': response_dict['server'],
 					'header': response_dict['headers'],
 					'url': request_dict['uri'],
-					'body': response_dict['body']
+					'body': proc_body_str(response_dict['body'], 16 * 1024)
 				}
 
 				if self.record_request:
 					data['request_body'] = request.hex()
 
 				self.send_msg(data)
-				return
+		else:
+			# TCP瞬时重复处理
+			if self.cache_size:
+				self.tcp_cache.set(cache_key, True)
 			
-		# TCP瞬时重复处理
-		if self.cache_size:
-			self.tcp_cache.set(cache_key, True)
-		
-		# 2.2 非 HTTP 通讯
-		data = {
-			'pro': 'TCP',
-			'tag': self.custom_tag,
-			'ip': ip,
-			'port': port,
-			'data': response.hex()
-		}
-		if self.record_request:
-			data['request_data'] = request.hex()
-		
-		self.send_msg(data)
+			# 2.2 非 HTTP 通讯
+			data = {
+				'pro': 'TCP',
+				'tag': self.custom_tag,
+				'ip': ip,
+				'port': port,
+				'data': proc_data_str(response.hex(), 16 * 1024)
+			}
+			if self.record_request:
+				data['request_data'] = request.hex()
+			
+			self.send_msg(data)
 
 	def http_filter(self, key, value):
 		"""
