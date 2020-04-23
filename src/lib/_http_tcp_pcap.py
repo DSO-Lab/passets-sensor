@@ -47,8 +47,8 @@ class tcp_http_pcap():
 			self.tcp_cache = Cache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
 			self.http_cache = Cache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
 		# http数据分析正则
-		self.decode_request_regex = re.compile(r'^([A-Z]+) +([^ \r\n]+) +HTTP/\d+\.\d+?\r\n(.*?)$', re.S)
-		self.decode_response_regex = re.compile(r'^HTTP/(\d+\.\d+) (\d+)[^\r\n]*\r\n(.*?)$', re.S)
+		self.decode_request_regex = re.compile(r'^([A-Z]+) +([^ \r\n]+) +HTTP/\d+(?:\.\d+)?\r\n(.*?)$', re.S)
+		self.decode_response_regex = re.compile(r'^HTTP/(\d+(?:\.\d+)?) (\d+)[^\r\n]*\r\n(.*?)$', re.S)
 		self.decode_body_regex = re.compile(rb'<meta[^>]+?charset=[\'"]?([a-z\d\-]+)[\'"]?', re.I)
 
 	def run(self):
@@ -119,6 +119,9 @@ class tcp_http_pcap():
 					# 判断是否为 HTTP 通讯
 					if packet.data[:5] == b'HTTP/':
 						request_dict = self.decode_request(send_data, packet.src, str(packet.sport))
+						if not request_dict:
+							continue
+
 						http_cache_key = '{}:{}'.format(request_dict['method'], request_dict['uri'])
 						if self.cache_size and self.http_cache.get(http_cache_key):
 							continue
@@ -207,6 +210,9 @@ class tcp_http_pcap():
 		data_str = str(data[:pos] if pos > 0 else data, 'utf-8', 'ignore')
 		m = self.decode_request_regex.match(data_str)
 		if m:
+			if m.group(2)[:1] != '/':
+				return None
+			
 			headers = m.group(3).strip() if m.group(3) else ''
 			header_dict = self.parse_headers(headers)
 			host_domain = ''
