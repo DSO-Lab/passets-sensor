@@ -6,6 +6,7 @@ import os
 import sys
 import requests
 import socket
+import json
 
 # TASK_LOCK_FILE临时文件，判断程序是否正在运行
 TASK_LOCK_FILE = sys.path[0]+'/passets_sensor.lock'
@@ -53,6 +54,51 @@ def check_lock():
 		print_log('[!] check_lock Error !')
 		print_log(e)
 		sys.exit()
+
+def proc_body_str(data, length):
+	"""
+	body 按照字节大小截取，防止超长，截取开头2/3和结尾1/3
+	:param data: 原始数据
+	:param length: 截取的数据长度
+	:return: 截断后的数据		
+	"""
+	if len(data) <= length:
+		return data
+	head_length = int(length*2//3)
+	end_length = length - head_length
+	intercept_data_head = data[:head_length]
+	intercept_data_end = data[-end_length:]
+	return intercept_data_head+intercept_data_end
+
+def proc_body_json(data, length):
+	"""
+	防止转换为 JSON 后超长的数据截取方法
+	:param data: 原始数据
+	:param length: 截取的数据长度
+	:return: 截断后的数据
+	"""
+	json_data = json.dumps(data)[:length]
+	total_len = len(json_data)
+	if total_len < length:
+		return data
+	
+	pos = json_data.rfind("\\u")
+	if pos + 6 > len(json_data):
+		json_data = json_data[:pos]
+	
+	return json.loads(json_data.rstrip(r'\"') + '"')
+
+def proc_data_str(data, length):
+	"""
+	data 按照字节大小阶段，防止超长，从起始位置开始截取
+	:param data: 原始数据的HEX字符串
+	:param length: 截取的数据长度
+	:return: 截断后的数据
+	"""
+	if len(data) <= length * 2:
+		return data
+
+	return data[: length * 2]
 
 # Syslog Send
 class _syslog_msg_send:
