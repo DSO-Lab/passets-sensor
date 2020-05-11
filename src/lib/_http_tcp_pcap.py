@@ -47,8 +47,8 @@ class tcp_http_pcap():
 			self.tcp_cache = Cache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
 			self.http_cache = Cache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
 		# http数据分析正则
-		self.decode_request_regex = re.compile(r'^([A-Z]+) +([^ \r\n]+) +HTTP/\d+(?:\.\d+)?\r\n(.*?)$', re.S)
-		self.decode_response_regex = re.compile(r'^HTTP/(\d+(?:\.\d+)?) (\d+)[^\r\n]*\r\n(.*?)$', re.S)
+		self.decode_request_regex = re.compile(r'^([A-Z]+) +([^ \r\n]+) +HTTP/\d+(?:\.\d+)?[^\r\n]*(.*?)$', re.S)
+		self.decode_response_regex = re.compile(r'^HTTP/(\d+(?:\.\d+)?) (\d+)[^\r\n]*(.*?)$', re.S)
 		self.decode_body_regex = re.compile(rb'<meta[^>]+?charset=[\'"]?([a-z\d\-]+)[\'"]?', re.I)
 
 	def run(self):
