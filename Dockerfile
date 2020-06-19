@@ -2,8 +2,8 @@ FROM docker.io/ubuntu:18.04
 
 ENV TZ="Asia/Shanghai" \
     tag="localhost" \
-    cache="1024" \
-    session="1024" \
+    cache="4096" \
+    session="4096" \
     timeout="3600" \
     debug="off" \
     http_filter_code="400,404,304" \
