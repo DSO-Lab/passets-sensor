@@ -190,15 +190,17 @@ class tcp_http_pcap():
 		return False
 
 	def pkt_decode(self, pkt):
-		packet = dpkt.ethernet.Ethernet(pkt)
-		if isinstance(packet.data, dpkt.ip.IP) and isinstance(packet.data.data, dpkt.tcp.TCP):
-			if packet.data.data.flags == 0x12 or \
-				packet.data.data.flags in [0x10, 0x18, 0x19] and len(packet.data.data.data) > 0:
-				tcp_pkt = packet.data.data
-				tcp_pkt.src = self.ip_addr(packet.data.src)
-				tcp_pkt.dst = self.ip_addr(packet.data.dst)
-				return tcp_pkt
-		
+		try:
+			packet = dpkt.ethernet.Ethernet(pkt)
+			if isinstance(packet.data, dpkt.ip.IP) and isinstance(packet.data.data, dpkt.tcp.TCP):
+				if packet.data.data.flags == 0x12 or \
+					packet.data.data.flags in [0x10, 0x18, 0x19] and len(packet.data.data.data) > 0:
+					tcp_pkt = packet.data.data
+					tcp_pkt.src = self.ip_addr(packet.data.src)
+					tcp_pkt.dst = self.ip_addr(packet.data.dst)
+					return tcp_pkt
+		except:
+			pass
 		return None
 
 	def ip_addr(self, ip):
