@@ -27,22 +27,24 @@ bpf_filter = 'tcp'
 display_filter = 'tcp'
 # debug模式，数据console输出
 debug = False
-# 开启深度数据分析
-return_deep_info = True
+# chunked/gzip数据分析，对性能压力较大
+return_deep_info = False
 # 重复缓存数量
-cache_size = 1024
+cache_size = 4096
 # 流量会话数量
-session_size = 1024
+session_size = 4096
 # tshark定期清空内存（单位秒/默认一小时），pcap接收数据包的超时时间（单位毫秒/默认3.6秒）
 timeout = 3600
 # 发送数据线程数量
-msg_send_thread_num = 10
+msg_send_thread_num = 2
 # 发送数据队列最大值
 max_queue_size = 50000
 # 资产数据发送模式，仅支持TCP，HTTP，SYSLOG三种
 msg_send_mode = 'TCP'
 # 流量采集引擎，仅支持TSHARK，PCAP两种
 engine = "PCAP"
+# pcap采集数据类型控制，TCP，HTTP
+pcap_collection_data = 'TCP/HTTP'
 
 # HTTP数据过滤
 http_filter = {
@@ -87,7 +89,7 @@ def tshark_analysis(work_queue):
 	shark_obj.run()
 
 def pcap_analysis(work_queue):
-	pcap_obj = tcp_http_pcap(int(max_queue_size), work_queue, interface, custom_tag, return_deep_info, http_filter, cache_size, session_size, bpf_filter, timeout, debug)
+	pcap_obj = tcp_http_pcap(pcap_collection_data, int(max_queue_size), work_queue, interface, custom_tag, return_deep_info, http_filter, cache_size, session_size, bpf_filter, timeout, debug)
 	pcap_obj.run()
 
 class thread_msg_send(threading.Thread):
@@ -155,10 +157,12 @@ if __name__ == '__main__':
 			debug_str = str(a)
 			if debug_str == 'on':
 				debug = True
-		# if o == '-r':
-		# 	return_switch_str = str(a)
-		# 	if return_switch_str == 'off':
-		# 		return_deep_info = False
+		if o == '-r':
+			return_switch_str = str(a)
+			if return_switch_str == 'on':
+				return_deep_info = True
+			else:
+				return_deep_info = False
 		if o == '-c':
 			cache_size = int(a)
 		if o == '-S':

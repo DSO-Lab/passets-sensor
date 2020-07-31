@@ -9,11 +9,12 @@ import re
 import io
 import gzip
 import brotli
+import os
 from cacheout import Cache, LRUCache
 
 class tcp_http_pcap():
 
-	def __init__(self, max_queue_size, work_queue, interface, custom_tag, return_deep_info, http_filter_json, cache_size, session_size, bpf_filter, timeout, debug):
+	def __init__(self, pcap_collection_data, max_queue_size, work_queue, interface, custom_tag, return_deep_info, http_filter_json, cache_size, session_size, bpf_filter, timeout, debug):
 		"""
 		构造函数
 		:param max_queue_size: 资产队列最大长度
@@ -22,12 +23,13 @@ class tcp_http_pcap():
 		:param custom_tag: 数据标签，用于区分不同的采集引擎
 		:param return_deep_info: 是否处理更多信息，包括原始请求、响应头和正文
 		:param http_filter_json: HTTP过滤器配置，支持按状态和内容类型过滤
-		:param cache_size: 缓存的已处理数据条数，120秒内重复的数据将不会发送Syslog
-		:param session_size: 缓存的HTTP/TCP会话数量，16秒未使用的会话将被自动清除
+		:param cache_size: 缓存的已处理数据条数，120秒内重复的数据将不会重复采集
+		:param session_size: 缓存的HTTP/TCP会话数量，30秒未使用的会话将被自动清除
 		:param bpf_filter: 数据包底层过滤器
 		:param timeout: 采集程序的运行超时时间，默认为启动后1小时自动退出
 		:param debug: 调试开关
 		"""
+		self.pcap_collection_data = pcap_collection_data
 		self.total_msg_num = 0
 		self.max_queue_size = max_queue_size
 		self.work_queue = work_queue
@@ -44,8 +46,8 @@ class tcp_http_pcap():
 		self.sniffer.setfilter(self.bpf_filter)
 		self.tcp_stream_cache = Cache(maxsize=self.session_size, ttl=30, timer=time.time, default=None)
 		if self.cache_size:
-			self.tcp_cache = Cache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
-			self.http_cache = Cache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
+			self.tcp_cache = LRUCache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
+			self.http_cache = LRUCache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
 		# http数据分析正则
 		self.decode_request_regex = re.compile(r'^([A-Z]+) +([^ \r\n]+) +HTTP/\d+(?:\.\d+)?[^\r\n]*(.*?)$', re.S)
 		self.decode_response_regex = re.compile(r'^HTTP/(\d+(?:\.\d+)?) (\d+)[^\r\n]*(.*?)$', re.S)
@@ -90,23 +92,24 @@ class tcp_http_pcap():
 
 				# 1. 提取服务器主动响应的通讯，例如：MySQL
 				# Seq == SYN-ACK Seq + 1
-				pre_sc_seq = self.tcp_stream_cache.get('S_{}'.format(packet.ack))
-				if pre_sc_seq == packet.seq:
-					self.tcp_stream_cache.delete('S_{}'.format(packet.ack))
+				if 'TCP' in self.pcap_collection_data:
+					pre_sc_seq = self.tcp_stream_cache.get('S_{}'.format(packet.ack))
+					if pre_sc_seq == packet.seq:
+						self.tcp_stream_cache.delete('S_{}'.format(packet.ack))
 
-					# TCP瞬时重复处理
-					if self.cache_size:
-						self.tcp_cache.set(cache_key, True)
-					
-					data = {
-						'pro': 'TCP',
-						'tag': self.custom_tag,
-						'ip': packet.src,
-						'port': packet.sport,
-						'data': packet.data.hex()
-					}
-					self.send_msg(data)
-					continue
+						# TCP瞬时重复处理
+						if self.cache_size:
+							self.tcp_cache.set(cache_key, True)
+						
+						data = {
+							'pro': 'TCP',
+							'tag': self.custom_tag,
+							'ip': packet.src,
+							'port': packet.sport,
+							'data': packet.data.hex()
+						}
+						self.send_msg(data)
+						continue
 
 				# 2. 提取需要请求服务器才会响应的通讯，例如：HTTP
 				# Seq == PSH ACK(C->S) Ack
@@ -116,8 +119,8 @@ class tcp_http_pcap():
 					# 删除已使用的缓存
 					self.tcp_stream_cache.delete('C_{}'.format(packet.seq))
 				
-					# 判断是否为 HTTP 通讯
-					if packet.data[:5] == b'HTTP/':
+					# HTTP通讯采集判断
+					if 'HTTP' in self.pcap_collection_data and packet.data[:5] == b'HTTP/':
 						request_dict = self.decode_request(send_data, packet.src, str(packet.sport))
 						if not request_dict:
 							continue
@@ -159,21 +162,22 @@ class tcp_http_pcap():
 							self.send_msg(data)
 							continue
 					
-					# TCP瞬时重复处理
-					if self.cache_size:
-						self.tcp_cache.set(cache_key, True)
+					# TCP通讯采集判断
+					elif 'TCP' in self.pcap_collection_data:
+						# TCP瞬时重复处理
+						if self.cache_size:
+							self.tcp_cache.set(cache_key, True)
+						
+						# 2.2 非 HTTP 通讯
+						data = {
+							'pro': 'TCP',
+							'tag': self.custom_tag,
+							'ip': packet.src,
+							'port': packet.sport,
+							'data': packet.data.hex()
+						}
+						self.send_msg(data)
 					
-					# 2.2 非 HTTP 通讯
-					data = {
-						'pro': 'TCP',
-						'tag': self.custom_tag,
-						'ip': packet.src,
-						'port': packet.sport,
-						'data': packet.data.hex()
-					}
-					self.send_msg(data)
-				
-
 		self.sniffer.close()
 
 	def http_filter(self, key, value):
@@ -199,6 +203,9 @@ class tcp_http_pcap():
 					tcp_pkt.src = self.ip_addr(packet.data.src)
 					tcp_pkt.dst = self.ip_addr(packet.data.dst)
 					return tcp_pkt
+		except KeyboardInterrupt:
+			print('\nExit.')
+			os.kill(os.getpid(),signal.SIGKILL)
 		except:
 			pass
 		return None
