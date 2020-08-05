@@ -206,7 +206,9 @@ class tcp_http_pcap():
 		except KeyboardInterrupt:
 			print('\nExit.')
 			os.kill(os.getpid(),signal.SIGKILL)
-		except:
+		except Exception as e:
+			# print(str(e))
+			# print(("".join(['%02X ' % b for b in pkt])))
 			pass
 		return None
 
