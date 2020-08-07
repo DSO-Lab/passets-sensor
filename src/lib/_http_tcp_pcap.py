@@ -195,13 +195,22 @@ class tcp_http_pcap():
 
 	def pkt_decode(self, pkt):
 		try:
+			ip_type = ''
 			packet = dpkt.ethernet.Ethernet(pkt)
-			if isinstance(packet.data, dpkt.ip.IP) and isinstance(packet.data.data, dpkt.tcp.TCP):
+			if isinstance(packet.data, dpkt.ip.IP):
+				ip_type = 'ip4'
+			elif isinstance(packet.data, dpkt.ip6.IP6):
+				ip_type = 'ip6'
+			if ip_type and isinstance(packet.data.data, dpkt.tcp.TCP):
 				if packet.data.data.flags == 0x12 or \
 					packet.data.data.flags in [0x10, 0x18, 0x19] and len(packet.data.data.data) > 0:
 					tcp_pkt = packet.data.data
-					tcp_pkt.src = self.ip_addr(packet.data.src)
-					tcp_pkt.dst = self.ip_addr(packet.data.dst)
+					if ip_type == 'ip4':
+						tcp_pkt.src = self.ip_addr(packet.data.src)
+						tcp_pkt.dst = self.ip_addr(packet.data.dst)
+					else:
+						tcp_pkt.src = self.ip6_addr(''.join(['%02X' %x  for x in packet.data.src]))
+						tcp_pkt.dst = self.ip6_addr(''.join(['%02X' %x  for x in packet.data.dst]))
 					return tcp_pkt
 		except KeyboardInterrupt:
 			print('\nExit.')
@@ -214,6 +223,13 @@ class tcp_http_pcap():
 
 	def ip_addr(self, ip):
 		return '%d.%d.%d.%d'%tuple(ip)
+
+	def ip6_addr(self,ip6):
+		ip6_addr = ''
+		ip6_list = re.findall(r'.{4}', ip6)
+		for i in range(len(ip6_list)):
+			ip6_addr += ':%s'%(ip6_list[i].lstrip('0') if ip6_list[i].lstrip('0') else '0')
+		return ip6_addr.lstrip(':')
 
 	def decode_request(self, data, sip, sport):
 		pos = data.find(b'\r\n\r\n')
@@ -242,7 +258,7 @@ class tcp_http_pcap():
 				'body': str(body, 'utf-8', 'ignore')
 			}
 
-		return {'method':'', 'uri':'http://{}:{}/'.format(sip, sport), 'headers':'', 'body':''}
+		return {'method':'', 'uri':'http://{}:{}/'.format(sip if ':' not in sip else '['+sip+']' , sport), 'headers':'', 'body':''}
 
 	def decode_response(self, data):
 		pos = data.find(b'\r\n\r\n')
