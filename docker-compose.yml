@@ -7,6 +7,7 @@ services:
     image: dsolab/passets-sensor:1.0.0
     container_name: passets-sensor
     environment:
+      - TZ=CST-8
       - interface=ens192
       - ip=ServerIP
       - port=ServerPort

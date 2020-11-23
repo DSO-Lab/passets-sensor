@@ -1,6 +1,6 @@
 FROM docker.io/ubuntu:18.04
 
-ENV TZ="Asia/Shanghai" \
+ENV TZ="CST-8" \
     tag="localhost" \
     cache="4096" \
     session="4096" \
