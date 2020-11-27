@@ -14,9 +14,10 @@ from ._util import proc_body_str, proc_data_str
 
 class tcp_http_pcap():
 
-	def __init__(self, max_queue_size, work_queue, interface, custom_tag, deep_info, record_request, http_filter_json, cache_size, session_size, bpf_filter, timeout, debug):
+	def __init__(self, allow_protocols, max_queue_size, work_queue, interface, custom_tag, deep_info, record_request, http_filter_json, cache_size, session_size, bpf_filter, timeout, debug):
 		"""
 		构造函数
+		:param allow_protocols: 收集数据的协议列表
 		:param max_queue_size: 资产队列最大长度
 		:param work_queue: 捕获资产数据消息发送队列
 		:param interface: 捕获流量的网卡名
@@ -25,11 +26,12 @@ class tcp_http_pcap():
 		:param record_request: 是否记录请求数据
 		:param http_filter_json: HTTP过滤器配置，支持按状态和内容类型过滤
 		:param cache_size: 缓存的已处理数据条数，120秒内重复的数据将不会发送Syslog
-		:param session_size: 缓存的HTTP/TCP会话数量，16秒未使用的会话将被自动清除
+		:param session_size: 缓存的HTTP/TCP会话数量，30秒未使用的会话将被自动清除
 		:param bpf_filter: 数据包底层过滤器
 		:param timeout: 采集程序的运行超时时间，默认为启动后1小时自动退出
 		:param debug: 调试开关
 		"""
+		self.allow_protocols = allow_protocols
 		self.total_msg_num = 0
 		self.max_queue_size = max_queue_size
 		self.work_queue = work_queue
@@ -47,18 +49,18 @@ class tcp_http_pcap():
 		self.sniffer.setfilter(self.bpf_filter)
 		self.tcp_stream_cache = Cache(maxsize=self.session_size, ttl=30, timer=time.time, default=None)
 		if self.cache_size:
-			self.tcp_cache = Cache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
-			self.http_cache = Cache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
+			self.tcp_cache = LRUCache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
+			self.http_cache = LRUCache(maxsize=self.cache_size, ttl=120, timer=time.time, default=None)
 		# http数据分析正则
 		self.decode_request_regex = re.compile(r'^([A-Z]+) +([^ \r\n]+) +HTTP/\d+(?:\.\d+)?[^\r\n]*(.*?)$', re.S)
 		self.decode_response_regex = re.compile(r'^HTTP/(\d+(?:\.\d+)?) (\d+)[^\r\n]*(.*?)$', re.S)
-		self.decode_body_regex = re.compile(rb'<meta[^>]+?charset=[\'"]?([a-z\d\-]+)[\'"]?', re.I)
+		self.decode_body_regex = re.compile(b'<meta[^>]+?charset=[\\\'"]?([a-z\\d\\-]+)[\\\'"]?', re.I)
 
 	def run(self):
 		"""
 		入口函数
 		"""
-		for ts, pkt in self.sniffer:
+		for _, pkt in self.sniffer:
 			# self.total_msg_num += 1
 			# if self.total_msg_num%1000 == 0:
 			# 	print("Packet analysis rate: %s"%(time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())+" - "+str(self.total_msg_num)))
@@ -211,7 +213,7 @@ class tcp_http_pcap():
 			return
 
 		# 2.1 处理 HTTP 通讯
-		if response[:5] == b'HTTP/':
+		if 'HTTP' in self.allow_protocols and response[:5] == b'HTTP/':
 			request_dict = self.decode_request(request, ip, str(port))
 			if not request_dict:
 				return
@@ -245,16 +247,17 @@ class tcp_http_pcap():
 					'code': response_code,
 					'type': content_type,
 					'server': response_dict['server'],
-					'header': response_dict['headers'],
 					'url': request_dict['uri'],
-					'body': proc_body_str(response_dict['body'], 16 * 1024)
+					'response_headers': response_dict['headers'],
+					'response_body': proc_body_str(response_dict['body'], 16 * 1024)
 				}
 
 				if self.record_request:
-					data['request_body'] = request.hex()
+					data['request_headers'] = request_dict['headers']
+					data['request_body'] = request_dict['body']
 
 				self.send_msg(data)
-		else:
+		elif 'TCP' in self.allow_protocols:
 			# TCP瞬时重复处理
 			if self.cache_size:
 				self.tcp_cache.set(cache_key, True)
@@ -286,21 +289,44 @@ class tcp_http_pcap():
 		return False
 
 	def pkt_decode(self, pkt):
-		packet = dpkt.ethernet.Ethernet(pkt)
-		if isinstance(packet.data, dpkt.ip.IP) and isinstance(packet.data.data, dpkt.tcp.TCP):
-			if packet.data.data.flags == 0x12 or \
-				packet.data.data.flags in [0x10, 0x18, 0x19] and len(packet.data.data.data) > 0:
-				tcp_pkt = packet.data.data
-				tcp_pkt.src = self.ip_addr(packet.data.src)
-				tcp_pkt.dst = self.ip_addr(packet.data.dst)
-				return tcp_pkt
+		try:
+			ip_type = ''
+			packet = dpkt.ethernet.Ethernet(pkt)
+			if isinstance(packet.data, dpkt.ip.IP):
+				ip_type = 'ip4'
+			elif isinstance(packet.data, dpkt.ip6.IP6):
+				ip_type = 'ip6'
+			
+			if ip_type and isinstance(packet.data.data, dpkt.tcp.TCP):
+				if packet.data.data.flags == 0x12 or \
+					packet.data.data.flags in [0x10, 0x18, 0x19] and len(packet.data.data.data) > 0:
+					tcp_pkt = packet.data.data
+					if ip_type == 'ip4':
+						tcp_pkt.src = self.ip_addr(packet.data.src)
+						tcp_pkt.dst = self.ip_addr(packet.data.dst)
+					else:
+						tcp_pkt.src = self.ip6_addr(''.join(['%02X' %x  for x in packet.data.src]))
+						tcp_pkt.dst = self.ip6_addr(''.join(['%02X' %x  for x in packet.data.dst]))
+					return tcp_pkt
+		except:
+			pass
 		
 		return None
 
 	def ip_addr(self, ip):
+		'''IPv4 地址格式化'''
 		return '%d.%d.%d.%d'%tuple(ip)
 
+	def ip6_addr(self, ip6):
+		'''IPv6 地址格式化'''
+		ip6_addr = ''
+		ip6_list = re.findall(r'.{4}', ip6)
+		for i in range(len(ip6_list)):
+			ip6_addr += ':%s'%(ip6_list[i].lstrip('0') if ip6_list[i].lstrip('0') else '0')
+		return ip6_addr.lstrip(':')
+
 	def decode_request(self, data, sip, sport):
+		'''解码 HTTP 请求'''
 		pos = data.find(b'\r\n\r\n')
 		body = data[pos+4:] if pos > 0 else b''
 		data_str = str(data[:pos] if pos > 0 else data, 'utf-8', 'ignore')
@@ -327,9 +353,10 @@ class tcp_http_pcap():
 				'body': str(body, 'utf-8', 'ignore')
 			}
 
-		return {'method':'', 'uri':'http://{}:{}/'.format(sip, sport), 'headers':'', 'body':''}
+		return {'method':'', 'uri':'http://{}:{}/'.format(sip if ':' not in sip else '['+sip+']' , sport), 'headers':'', 'body':''}
 
 	def decode_response(self, data):
+		'''解码 HTTP 响应'''
 		pos = data.find(b'\r\n\r\n')
 		body = data[pos+4:] if pos > 0 else b''
 		header_str = str(data[:pos] if pos > 0 else data, 'utf-8', 'ignore')
@@ -337,16 +364,17 @@ class tcp_http_pcap():
 		if m:
 			headers = m.group(3).strip() if m.group(3) else ''
 			headers_dict = self.parse_headers(headers)
-			if self.deep_info and 'transfer-encoding' in headers_dict and headers_dict['transfer-encoding'] == 'chunked':
-				body = self.decode_chunked(body)
+			if self.deep_info:
+				if 'transfer-encoding' in headers_dict and headers_dict['transfer-encoding'] == 'chunked':
+					body = self.decode_chunked(body)
 
-			if self.deep_info and 'content-encoding' in headers_dict:
-				if headers_dict['content-encoding'] == 'gzip':
-					body = self.decode_gzip(body)
-				elif headers_dict['content-encoding'] == 'br':
-					body = self.decode_brotli(body)
+				if 'content-encoding' in headers_dict:
+					if headers_dict['content-encoding'] == 'gzip':
+						body = self.decode_gzip(body)
+					elif headers_dict['content-encoding'] == 'br':
+						body = self.decode_brotli(body)
 			
-			content_type = '' if 'content-type' not in headers_dict else headers_dict['content-type']
+			content_type = 'text/html' if 'content-type' not in headers_dict else headers_dict['content-type']
 			server = '' if 'server' not in headers_dict else headers_dict['server']
 			return {
 				'version': m.group(1) if m.group(1) else '',
@@ -412,6 +440,7 @@ class tcp_http_pcap():
 		return data
 
 	def decode_body(self, data, content_type):
+		'''根据 Content-Type 解码 HTTP 响应数据'''
 		charset_white_list = ['big5','big5-hkscs','cesu-8','euc-jp','euc-kr','gb18030','gb2312','gbk','ibm-thai','ibm00858','ibm01140','ibm01141','ibm01142','ibm01143','ibm01144','ibm01145','ibm01146','ibm01147','ibm01148','ibm01149','ibm037','ibm1026','ibm1047','ibm273','ibm277','ibm278','ibm280','ibm284','ibm285','ibm290','ibm297','ibm420','ibm424','ibm437','ibm500','ibm775','ibm850','ibm852','ibm855','ibm857','ibm860','ibm861','ibm862','ibm863','ibm864','ibm865','ibm866','ibm868','ibm869','ibm870','ibm871','ibm918','iso-10646-ucs-2','iso-2022-cn','iso-2022-jp','iso-2022-jp-2','iso-2022-kr','iso-8859-1','iso-8859-10','iso-8859-13','iso-8859-15','iso-8859-16','iso-8859-2','iso-8859-3','iso-8859-4','iso-8859-5','iso-8859-6','iso-8859-7','iso-8859-8','iso-8859-9','jis_x0201','jis_x0212-1990','koi8-r','koi8-u','shift_jis','tis-620','us-ascii','utf-16','utf-16be','utf-16le','utf-32','utf-32be','utf-32le','utf-8','windows-1250','windows-1251','windows-1252','windows-1253','windows-1254','windows-1255','windows-1256','windows-1257','windows-1258','windows-31j','x-big5-hkscs-2001','x-big5-solaris','x-euc-jp-linux','x-euc-tw','x-eucjp-open','x-ibm1006','x-ibm1025','x-ibm1046','x-ibm1097','x-ibm1098','x-ibm1112','x-ibm1122','x-ibm1123','x-ibm1124','x-ibm1166','x-ibm1364','x-ibm1381','x-ibm1383','x-ibm300','x-ibm33722','x-ibm737','x-ibm833','x-ibm834','x-ibm856','x-ibm874','x-ibm875','x-ibm921','x-ibm922','x-ibm930','x-ibm933','x-ibm935','x-ibm937','x-ibm939','x-ibm942','x-ibm942c','x-ibm943','x-ibm943c','x-ibm948','x-ibm949','x-ibm949c','x-ibm950','x-ibm964','x-ibm970','x-iscii91','x-iso-2022-cn-cns','x-iso-2022-cn-gb','x-iso-8859-11','x-jis0208','x-jisautodetect','x-johab','x-macarabic','x-maccentraleurope','x-maccroatian','x-maccyrillic','x-macdingbat','x-macgreek','x-machebrew','x-maciceland','x-macroman','x-macromania','x-macsymbol','x-macthai','x-macturkish','x-macukraine','x-ms932_0213','x-ms950-hkscs','x-ms950-hkscs-xp','x-mswin-936','x-pck','x-sjis','x-sjis_0213','x-utf-16le-bom','x-utf-32be-bom','x-utf-32le-bom','x-windows-50220','x-windows-50221','x-windows-874','x-windows-949','x-windows-950','x-windows-iso2022jp']
 		content_type = content_type.lower() if content_type else ''
 		if 'charset=' in content_type:
@@ -435,6 +464,7 @@ class tcp_http_pcap():
 		# 		return str(data, result['encoding'], 'ignore')
 
 	def parse_headers(self, data):
+		'''将 HTTP 请求/响应头字符串转换为字典类型'''
 		headers = {}
 		lines = data.split('\r\n')
 		for _ in lines:
@@ -458,6 +488,7 @@ class tcp_http_pcap():
 		return result
 
 	def send_msg(self, data):
+		'''将捕获的数据压入推送到 Logstash 的队列'''
 		result = json.dumps(data)
 		if self.debug:
 			print(result)

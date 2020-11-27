@@ -6,8 +6,11 @@
 
 ```
 -i  流量采集网卡（例如：eth0、ens192），需必填
+-e  发送数据中包含请求信息
+-r  处理请求报文及HTTP响应中的Chunked/Gzip数据
 -s  数据接收服务器地址，需必填
 -p  数据接收服务器监听端口，需必填
+-P  指定捕获的协议类型，支持 HTTP、TCP或HTTP/TCP
 -t  标识流量来源，Default:localhost
 -d  Debug调试信息开关，off|on，Default:off
 -c  缓存大小，用于过滤瞬时重复数据，Default:1024
@@ -97,8 +100,14 @@ HTTP OUTPUT JSON
   "type": "text/html",        
   # 网站server头信息
   "server": "nginx/1.16.1", 
+  # 网站响应头
+  "request_headers": "GET / HTTP/1.1",
   # 网站响应body信息（仅-r on时返回）
-  "body": "<html>...</html>"                    
+  "request_body": "userId=1"
+  # 网站响应头
+  "response_headers": "Host: x.x.x.x",
+  # 网站响应body信息（仅-r on时返回）
+  "response_body": "<html>...</html>"
 }
 ```
 
@@ -113,8 +122,10 @@ TCP OUTPUT JSON
   # 服务IP
   "ip": "192.x.x.53", 
   # 服务端口
-  "port": "3306",     
-  # TCP第一个响应报文（仅-r on时返回）
+  "port": "3306",
+  # TCP 请求
+  "reuqest": "3716c5f6e61746976655f70617373776f726400",
+  # TCP 第一个响应报文（仅-r on时返回）
   "data": "590000000a352e352e352d31302e312e32342d4d61726961444200a601000061655662665b776200fff72102003fa015000000000000000000006451474f396b345e5f40614a006d7973716c5f6e61746976655f70617373776f726400"                                     
 }
 ```
@@ -139,13 +150,11 @@ Q：LRU算法的设计原则是什么？
 
 **深度资产信息采集**
 
-只有开启了深度资产信息采集开关，才可以采集到 HTTP 响应头、HTTP响应正文、TCP响应报文和HTTPS站点。
+只有开启了深度资产信息采集开关，才可以采集到请求头及处理 Chunked/Gzip HTTP 响应数据。
 
 **协议支持**
 
 - HTTP
-
-- HTTPS
 
 - TCP
 

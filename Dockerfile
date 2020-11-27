@@ -9,9 +9,12 @@ ENV TZ="Asia/Shanghai" \
     deep_info="on" \
     record_request="off" \
     http_filter_code="400,404,304" \
-    http_filter_type="audio/,video/,image/,font/,application/pdf,application/msword,application/javascript,text/javascript,text/css"
+    http_filter_type="audio/,video/,image/,font/,application/pdf,application/msword,application/javascript,text/javascript,text/css" \
+    protocols="HTTP/TCP"
 
 COPY src /root/sensor
+
+WORKDIR /root/sensor
 
 RUN apt-get -y update && \
     apt-get -y install software-properties-common wget && \
@@ -36,4 +39,4 @@ RUN apt-get -y update && \
     apt-get autoremove && \
     rm -f apt-ntop-stable.deb
 
-ENTRYPOINT ["/bin/bash","-c","/usr/bin/python3 /root/sensor/main.py -i $interface -t $tag -s $ip -p $port -c $cache -S $session -T $timeout -d $debug -D $deep_info -r $record_request"]
+ENTRYPOINT ["/bin/bash", "-c", "python3 main.py -i $interface -t $tag -s $ip -p $port -c $cache -S $session -T $timeout -d $debug -r $deep_info -e $record_request -P $protocols"]
