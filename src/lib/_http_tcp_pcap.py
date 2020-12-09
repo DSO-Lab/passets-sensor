@@ -125,7 +125,7 @@ class tcp_http_pcap():
 						if not request_dict:
 							continue
 
-						http_cache_key = '{}:{}'.format(request_dict['method'], request_dict['uri'])
+						http_cache_key = '{}:{}'.format(request_dict['method'], request_dict['uri'].split("?")[0])
 						if self.cache_size and self.http_cache.get(http_cache_key):
 							continue
 						
